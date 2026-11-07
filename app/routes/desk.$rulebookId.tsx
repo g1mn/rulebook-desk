@@ -22,6 +22,7 @@ import { Link, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import { ArchiveMenu } from "@/components/desk/ArchiveMenu";
+import { DeleteRulebookButton } from "@/components/desk/DeleteRulebookButton";
 import { EditFactDialog, type FactPatch } from "@/components/desk/EditFactDialog";
 import { FactRow, type Fact } from "@/components/desk/FactRow";
 import { SourcePane } from "@/components/desk/SourcePane";
@@ -279,6 +280,7 @@ export default function RulebookRoute() {
                 <IconSparkles className="size-4" />
                 {facts.length ? "Ask agent for missing facts" : "Extract with agent"}
               </Button>
+              <DeleteRulebookButton id={data.id} name={data.name} />
             </div>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">

@@ -25,7 +25,7 @@ export function editorFor(caller: Caller): string {
 
 export async function requireRulebook(
   id: string,
-  role: "viewer" | "editor" = "viewer",
+  role: "viewer" | "editor" | "admin" = "viewer",
 ) {
   const [row] = await getDb()
     .select()

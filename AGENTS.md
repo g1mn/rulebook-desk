@@ -53,3 +53,4 @@ Turn contest, grant and program rule pages into checked deadlines and requiremen
 | update-fact | Patch a fact or set status/done |
 | check-sources | Re-fetch, diff, mark stale |
 | list-archive-copies | Wayback copies to replay via asOf |
+| delete-rulebook | Delete after the person confirms |
