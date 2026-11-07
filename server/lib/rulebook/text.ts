@@ -40,8 +40,10 @@ export function decodeEntities(input: string): string {
   });
 }
 
+// Table cells are not blocks: a row becomes one paragraph ("Grand Prize | $30,000")
+// so a quote can carry both the label and the value.
 const BLOCK_TAGS =
-  "address|article|aside|blockquote|br|dd|details|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|summary|table|tbody|td|tfoot|th|thead|tr|ul";
+  "address|article|aside|blockquote|br|dd|details|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|summary|table|tbody|tfoot|thead|tr|ul";
 
 /** Turn an HTML page into readable paragraphs separated by blank lines. */
 export function htmlToText(html: string): { title: string; text: string } {
@@ -59,6 +61,8 @@ export function htmlToText(html: string): { title: string; text: string } {
     .replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/<(nav|footer)\b[\s\S]*?<\/\1>/gi, " ")
     .replace(/<(script|style|noscript|template|svg|canvas|iframe|head)\b[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<\/t[dh]>\s*<t[dh]\b[^>]*>/gi, " | ")
+    .replace(/<\/?t[dh]\b[^>]*>/gi, " ")
     .replace(new RegExp(`<\\/?(?:${BLOCK_TAGS})\\b[^>]*>`, "gi"), "\n\n")
     .replace(/<[^>]+>/g, " ");
   const text = decodeEntities(body)

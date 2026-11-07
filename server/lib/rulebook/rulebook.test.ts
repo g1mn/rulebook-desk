@@ -62,6 +62,13 @@ describe("diff", () => {
   });
 });
 
+describe("htmlToText tables", () => {
+  it("keeps a table row together so prize quotes carry their label", () => {
+    const { text } = htmlToText("<body><table><tr><th>Prize</th><th>Amount</th></tr><tr><td>Grand Prize</td><td>$30,000 USD</td></tr></table></body>");
+    expect(text.split("\n\n")).toEqual(["Prize | Amount", "Grand Prize | $30,000 USD"]);
+  });
+});
+
 describe("htmlToText", () => {
   it("keeps main content and drops scripts, nav and footer", () => {
     const html = `<html><head><title>Rules &amp; FAQ</title><script>var x=1</script></head><body><nav><a>Log in</a></nav><main><h1>Official Rules</h1><p>Deadline:&nbsp;Dec 4, 2026 @ 2:00pm PST</p><ul><li>One</li><li>Two</li></ul></main><footer>© 2026</footer></body></html>`;
