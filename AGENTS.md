@@ -52,3 +52,4 @@ Turn contest, grant and program rule pages into checked deadlines and requiremen
 | save-facts | Batch-save quoted facts (proposed) |
 | update-fact | Patch a fact or set status/done |
 | check-sources | Re-fetch, diff, mark stale |
+| list-archive-copies | Wayback copies to replay via asOf |

@@ -21,6 +21,7 @@ const INITIAL_TOOL_NAMES = [
   "update-fact",
   "check-sources",
   "add-source",
+  "list-archive-copies",
   "ask-question",
 ];
 

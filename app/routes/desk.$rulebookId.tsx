@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
+import { ArchiveMenu } from "@/components/desk/ArchiveMenu";
 import { EditFactDialog, type FactPatch } from "@/components/desk/EditFactDialog";
 import { FactRow, type Fact } from "@/components/desk/FactRow";
 import { SourcePane } from "@/components/desk/SourcePane";
@@ -345,6 +346,14 @@ export default function RulebookRoute() {
                 <IconPlus className="size-3" /> Add page
               </button>
             )}
+            {activeSource ? (
+              <ArchiveMenu
+                sourceId={activeSource.id}
+                url={activeSource.url}
+                pending={check.isPending}
+                onReplay={(asOf) => check.mutate({ sourceId: activeSource.id, asOf })}
+              />
+            ) : null}
           </div>
         </div>
 
