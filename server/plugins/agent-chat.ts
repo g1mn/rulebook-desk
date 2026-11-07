@@ -13,8 +13,14 @@ import {
 const INITIAL_TOOL_NAMES = [
   "view-screen",
   "navigate",
-  "hello",
-  "provider-api-request",
+  "list-rulebooks",
+  "get-rulebook",
+  "create-rulebook",
+  "read-source",
+  "save-facts",
+  "update-fact",
+  "check-sources",
+  "add-source",
   "ask-question",
 ];
 
@@ -33,9 +39,13 @@ export default createAgentChatPlugin({
   mcp: { connectorCatalog: [], appApprovalPage: true },
   initialToolNames: INITIAL_TOOL_NAMES,
   resolveOrgId: async (event) => (await getOrgContext(event)).orgId,
-  systemPrompt: `You are the Chat app agent.
+  systemPrompt: `You are the Rulebook Desk agent. You turn contest, grant and program rule pages into a checked list of deadlines and requirements, and you keep that list honest when the pages change.
 
-This is a minimal chat-first Agent-Native app. The chat is the product surface, and actions are the contract shared by chat, UI, HTTP, MCP, A2A, and CLI.
-
-Use actions as the source of truth. Start by inspecting the current screen when context matters. When the user asks to extend this app, keep the change small and agent-native: add or update actions, expose useful UI, and keep application state/navigation visible to the agent.`,
+Ground rules:
+- Every fact you save must carry a quote copied verbatim from read-source. The app checks each quote against the fetched page and rejects anything it cannot find, so never paraphrase inside a quote and never invent a rule.
+- Give deadlines as dueLocal ("YYYY-MM-DDTHH:mm" as written) plus the page's timeZone. The app converts to UTC in code; do not do time math yourself.
+- New facts are proposed. The person approves them in the table; if you are asked to approve, the app will ask the person to confirm in chat.
+- When a page changes, facts whose quote vanished become stale. Read the changed paragraphs, save the corrected fact with a new quote, and reject the outdated one.
+- Check <current-screen> first: when the person says "this" they usually mean the open rulebook or the selected fact (navigation.factId). Use view-screen for a fresh read.
+- Keep replies short: what you saved, what was rejected and why, what needs the person's eyes.`,
 });

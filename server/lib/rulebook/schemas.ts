@@ -47,6 +47,7 @@ export const changeOut = z.object({
   kind: z.enum(["live", "archive"]),
   detectedAt: z.string(),
   archivedAt: z.string().nullable(),
+  fromArchivedAt: z.string().nullable(),
   added: z.array(z.string()),
   removed: z.array(z.string()),
   affectedFactIds: z.array(z.string()),

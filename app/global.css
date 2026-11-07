@@ -281,3 +281,51 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.34);
 }
+
+/* ── Rulebook Desk ──────────────────────────────────────────────
+   Highlighter amber = needs your eyes, ink green = quote verified,
+   red = the page changed under an approved fact. */
+:root {
+  --desk-accent: hsl(36 92% 42%);
+  --desk-accent-bg: hsl(43 96% 56% / 0.16);
+  --desk-highlight: hsl(48 100% 60% / 0.38);
+  --desk-verified: hsl(152 52% 36%);
+  --desk-verified-bg: hsl(152 52% 36% / 0.12);
+  --desk-stale: hsl(358 70% 48%);
+  --desk-stale-bg: hsl(358 70% 48% / 0.1);
+  --desk-paper: hsl(40 33% 98%);
+}
+.dark {
+  --desk-accent: hsl(40 96% 60%);
+  --desk-accent-bg: hsl(43 96% 56% / 0.14);
+  --desk-highlight: hsl(45 100% 55% / 0.26);
+  --desk-verified: hsl(150 50% 55%);
+  --desk-verified-bg: hsl(150 50% 55% / 0.12);
+  --desk-stale: hsl(0 85% 66%);
+  --desk-stale-bg: hsl(0 85% 66% / 0.12);
+  --desk-paper: hsl(30 6% 11%);
+}
+.desk-serif {
+  font-family: "Iowan Old Style", "Charter", "Georgia", "Times New Roman", serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.desk-quote {
+  font-family: "Iowan Old Style", "Charter", "Georgia", serif;
+}
+.desk-mark {
+  background: linear-gradient(transparent 12%, var(--desk-highlight) 12%, var(--desk-highlight) 88%, transparent 88%);
+  border-radius: 2px;
+  padding: 0 1px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .desk-flash {
+    animation: desk-flash 1.6s ease-out;
+  }
+  @keyframes desk-flash {
+    0% { background-color: var(--desk-accent-bg); }
+    100% { background-color: transparent; }
+  }
+}

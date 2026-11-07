@@ -25,9 +25,9 @@ export default defineAction({
       .number()
       .int()
       .min(1)
-      .max(200)
+      .max(500)
       .default(120)
-      .describe("Maximum paragraphs to return; defaults to 120"),
+      .describe("Maximum paragraphs to return (1-500); defaults to 120"),
   }),
   outputSchema: z.object({
     sourceId: z.string(),

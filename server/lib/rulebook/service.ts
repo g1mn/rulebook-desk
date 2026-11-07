@@ -1,6 +1,6 @@
 import { fail } from "@agent-native/core/action";
 import { emit } from "@agent-native/core/event-bus";
-import { assertAccess } from "@agent-native/core/sharing";
+import { accessFilter } from "@agent-native/core/sharing";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { getDb, schema } from "../../db/index.js";
@@ -22,15 +22,15 @@ export async function requireRulebook(
   id: string,
   role: "viewer" | "editor" = "viewer",
 ) {
-  try {
-    await assertAccess("rulebook", id, role);
-  } catch {
-    fail("Rulebook not found.", { errorCode: "not_found", statusCode: 404 });
-  }
   const [row] = await getDb()
     .select()
     .from(schema.rulebooks)
-    .where(eq(schema.rulebooks.id, id))
+    .where(
+      and(
+        eq(schema.rulebooks.id, id),
+        accessFilter(schema.rulebooks, schema.rulebookShares, undefined, role),
+      ),
+    )
     .limit(1);
   if (!row)
     fail("Rulebook not found.", { errorCode: "not_found", statusCode: 404 });

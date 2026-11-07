@@ -1,6 +1,7 @@
 import { defineAction, fail } from "@agent-native/core/action";
 import type { WriteReceipt } from "@agent-native/core/action";
-import { eq } from "drizzle-orm";
+import { accessFilter } from "@agent-native/core/sharing";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
@@ -168,7 +169,12 @@ export default defineAction({
       await db
         .update(schema.rulebooks)
         .set({ updatedAt: now })
-        .where(eq(schema.rulebooks.id, rulebook.id));
+        .where(
+          and(
+            eq(schema.rulebooks.id, rulebook.id),
+            accessFilter(schema.rulebooks, schema.rulebookShares, undefined, "editor"),
+          ),
+        );
     const _receipt: WriteReceipt = {
       changed: saved.length > 0,
       verified: rejected.length === 0,

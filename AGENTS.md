@@ -31,3 +31,24 @@ Use `adding-a-feature` for functional parity and `frontend-design` for a user-fa
 Before building common workspace or agent UI, read `agent-native-toolkit`; for supported customization, read `customizing-agent-native`.
 
 - Guarded verification: run `pnpm agent-native:doctor`; fix findings before done.
+
+## Rulebook Desk
+
+Turn contest, grant and program rule pages into checked deadlines and requirements. `/desk` lists rulebooks with a deadline timeline; `/desk/:rulebookId?fact=<id>` is the review table beside the page text. Chat stays at `/chat`.
+
+- Every saved fact carries a verbatim quote. `save-facts`/`update-fact` check it against the fetched page (normalized whitespace and curly quotes); unfound quotes are rejected for agents. Never paraphrase inside a quote.
+- Only verified facts can be approved (409 `quote_unverified`). Agent approvals require the person's confirmation; an agent edit to an approved fact returns it to `proposed`.
+- Deadlines: send `dueLocal` "YYYY-MM-DDTHH:mm" as written plus `timeZone` (IANA or PT/ET/UTC/KST/AoE). Code computes `dueAt` (UTC ISO). Do no time math.
+- `check-sources` re-fetches pages; changed text stores a snapshot, records added/removed paragraphs, marks facts stale when their quote vanished, and emits `rulebook.source.changed`. `asOf` (Wayback "YYYYMMDD") loads an Internet Archive copy instead.
+- `navigation` adds `rulebookId` and `factId` (selected row). `view-screen` returns the open rulebook and selected fact.
+
+| Action | Purpose |
+|---|---|
+| list-rulebooks | Rulebooks with counts and next deadline |
+| get-rulebook | Sources, facts, recent changes |
+| create-rulebook | Track 1-5 URLs and fetch them |
+| add-source | Add a page to a rulebook |
+| read-source | Numbered paragraphs; `find` filters |
+| save-facts | Batch-save quoted facts (proposed) |
+| update-fact | Patch a fact or set status/done |
+| check-sources | Re-fetch, diff, mark stale |

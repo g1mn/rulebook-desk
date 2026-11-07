@@ -65,8 +65,8 @@ export default defineAction({
       .limit(500);
     const changeRows = await recentChanges(id, 10);
     const archiveSnapIds = changeRows
-      .filter((c) => c.kind === "archive" && c.fromSnapshotId)
-      .map((c) => c.fromSnapshotId!);
+      .flatMap((c) => [c.fromSnapshotId, c.toSnapshotId])
+      .filter((x): x is string => Boolean(x));
     const archiveSnaps = archiveSnapIds.length
       ? await db
           .select({
@@ -75,7 +75,7 @@ export default defineAction({
           })
           .from(schema.snapshots)
           .where(inArray(schema.snapshots.id, archiveSnapIds))
-          .limit(20)
+          .limit(40)
       : [];
     return {
       id: rulebook.id,
@@ -101,6 +101,9 @@ export default defineAction({
         kind: c.kind,
         detectedAt: c.detectedAt,
         archivedAt:
+          archiveSnaps.find((s) => s.id === c.toSnapshotId)?.archivedAt ??
+          null,
+        fromArchivedAt:
           archiveSnaps.find((s) => s.id === c.fromSnapshotId)?.archivedAt ??
           null,
         added: JSON.parse(c.added) as string[],

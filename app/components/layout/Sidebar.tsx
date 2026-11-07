@@ -14,8 +14,8 @@ import { OrgSwitcher } from "@agent-native/toolkit/app/org";
 import { openCommandMenu } from "@agent-native/toolkit/app/shared";
 import { AgentNativeIcon } from "@agent-native/toolkit/app/shared/AgentNativeIcon";
 import {
+  IconBook2,
   IconEdit,
-  IconHome,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconLoader2,
@@ -120,12 +120,12 @@ function persistActiveThreadId(threadId: string) {
 function HomeNavLink({ collapsed }: { collapsed: boolean }) {
   const t = useT();
   const location = useLocation();
-  const active = location.pathname === HOME_PATH;
+  const active = location.pathname.startsWith("/desk");
   const link = (
     <Link
-      to={HOME_PATH}
+      to="/desk"
       aria-current={active ? "page" : undefined}
-      aria-label={collapsed ? t("navigation.home") : undefined}
+      aria-label={collapsed ? "Rulebooks" : undefined}
       className={cn(
         "flex items-center text-sidebar-accent-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
         active && "bg-sidebar-accent",
@@ -134,10 +134,8 @@ function HomeNavLink({ collapsed }: { collapsed: boolean }) {
           : "h-8 w-full gap-3 rounded-lg px-3 text-sm font-medium",
       )}
     >
-      <IconHome className="size-4 shrink-0" strokeWidth={1.8} />
-      <span className={collapsed ? "sr-only" : "truncate"}>
-        {t("navigation.home")}
-      </span>
+      <IconBook2 className="size-4 shrink-0" strokeWidth={1.8} />
+      <span className={collapsed ? "sr-only" : "truncate"}>Rulebooks</span>
     </Link>
   );
 
@@ -145,7 +143,7 @@ function HomeNavLink({ collapsed }: { collapsed: boolean }) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>{link}</TooltipTrigger>
-        <TooltipContent side="right">{t("navigation.home")}</TooltipContent>
+        <TooltipContent side="right">Rulebooks</TooltipContent>
       </Tooltip>
     );
   }

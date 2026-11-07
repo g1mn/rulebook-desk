@@ -18,13 +18,19 @@ export interface NavigationState {
   path?: string;
   publicPath?: string;
   threadId?: string;
+  rulebookId?: string;
+  factId?: string;
 }
 
 export function useNavigationState() {
   useAgentRouteState<NavigationState>({
     browserTabId: TAB_ID,
     requestSource: TAB_ID,
-    getNavigationState: ({ pathname }) => navigationStateForPath(pathname),
+    getNavigationState: ({ pathname, searchParams }) => {
+      const state = navigationStateForPath(pathname);
+      const factId = searchParams.get("fact");
+      return factId && state.rulebookId ? { ...state, factId } : state;
+    },
     getCommandPath: commandPathForNavigation,
   });
 }
@@ -64,15 +70,19 @@ function matchesPathPrefix(pathname: string, prefix: string): boolean {
 
 export function navigationStateForPath(pathname: string): NavigationState {
   const threadId = threadIdFromPath(pathname);
+  const rulebookId = pathname.match(/^\/desk\/([^/]+)/)?.[1];
   return {
     view: viewForPath(pathname),
     path: pathname,
     publicPath: appPathFromLocalRoute(pathname),
     ...(threadId ? { threadId } : {}),
+    ...(rulebookId ? { rulebookId: decodeURIComponent(rulebookId) } : {}),
   };
 }
 
 function viewForPath(pathname: string): string {
+  if (/^\/desk\/[^/]+/.test(pathname)) return "rulebook";
+  if (pathname.startsWith("/desk")) return "desk";
   if (isChatPathname(pathname)) return "chat";
   if (pathname === HOME_PATH) return "home";
   if (pathname.startsWith("/database")) return "database";
@@ -88,6 +98,9 @@ function viewForPath(pathname: string): string {
 
 function pathForView(view?: string): string {
   switch (view) {
+    case "desk":
+    case "rulebook":
+      return "/desk";
     case "chat":
     case "ask":
       return NEW_CHAT_PATH;

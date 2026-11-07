@@ -38,6 +38,9 @@ export default defineAction({
         requirementsDone: z.number(),
         requirementsTotal: z.number(),
         lastChangeAt: z.string().nullable(),
+        deadlines: z.array(
+          z.object({ label: z.string(), dueAt: z.string(), status: z.string() }),
+        ),
       }),
     ),
   }),
@@ -118,9 +121,7 @@ export default defineAction({
           .map((r) => r.lastCheckedAt)
           .filter((x): x is string => Boolean(x))
           .sort();
-        const lastLive = changeRows.find(
-          (c) => c.rulebookId === b.id && c.kind === "live",
-        );
+        const lastLive = changeRows.find((c) => c.rulebookId === b.id);
         return {
           id: b.id,
           name: b.name,
@@ -141,6 +142,11 @@ export default defineAction({
           requirementsDone: reqs.filter((r) => r.done).length,
           requirementsTotal: reqs.length,
           lastChangeAt: lastLive?.detectedAt ?? null,
+          deadlines: f
+            .filter((r) => r.dueAt && r.status !== "rejected")
+            .sort((x, y) => (x.dueAt! < y.dueAt! ? -1 : 1))
+            .slice(0, 12)
+            .map((r) => ({ label: r.label, dueAt: r.dueAt!, status: r.status })),
         };
       }),
     };
