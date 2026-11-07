@@ -11,6 +11,7 @@ import {
   IconArrowLeft,
   IconChevronDown,
   IconHistory,
+  IconPlus,
   IconRefresh,
   IconSparkles,
   IconWand,
@@ -24,6 +25,7 @@ import { EditFactDialog, type FactPatch } from "@/components/desk/EditFactDialog
 import { FactRow, type Fact } from "@/components/desk/FactRow";
 import { SourcePane } from "@/components/desk/SourcePane";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   formatWayback,
@@ -127,6 +129,42 @@ export default function RulebookRoute() {
     onError: (err) => toast.error(actionErrorMessage(err) ?? "Check failed."),
   });
 
+  // Hand-added facts go through the same quote check as the agent's.
+  const [draft, setDraft] = useState<FactPatch | null>(null);
+  const [draftSourceId, setDraftSourceId] = useState<string | null>(null);
+  const saveFacts = useActionMutation("save-facts", {
+    onSuccess: (result) => {
+      if (result.rejected.length) toast.error(result.rejected[0]!.reason);
+      else toast.success(result.message);
+      setDraft(null);
+      setDraftSourceId(null);
+      const added = result.saved[0];
+      if (added)
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.set("fact", added.id);
+            return next;
+          },
+          { replace: true },
+        );
+    },
+    onError: (err) => toast.error(actionErrorMessage(err) ?? "Could not add the fact."),
+  });
+
+  const [addingPage, setAddingPage] = useState(false);
+  const [pageUrl, setPageUrl] = useState("");
+  const addSource = useActionMutation("add-source", {
+    onSuccess: (result) => {
+      if (result.status === "error") toast.error(result.error ?? "Could not fetch that page.");
+      else toast.success(`Now tracking ${hostOf(result.url)} (${result.paragraphs} paragraphs).`);
+      setSourceTab(result.sourceId);
+      setPageUrl("");
+      setAddingPage(false);
+    },
+    onError: (err) => toast.error(actionErrorMessage(err) ?? "Could not add the page."),
+  });
+
   if (isPending) {
     return (
       <main className="grid h-full gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
@@ -224,6 +262,18 @@ export default function RulebookRoute() {
                 <IconRefresh className={cn("size-4", check.isPending && "animate-spin")} />
                 Check pages now
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  setDraftSourceId(null);
+                  setDraft({ kind: "requirement" });
+                }}
+              >
+                <IconPlus className="size-4" />
+                Add fact
+              </Button>
               <Button size="sm" className="gap-1.5" onClick={() => askAgent(extractMsg)}>
                 <IconSparkles className="size-4" />
                 {facts.length ? "Ask agent for missing facts" : "Extract with agent"}
@@ -258,6 +308,43 @@ export default function RulebookRoute() {
                 <span className="text-muted-foreground">· {relativeTime(s.lastCheckedAt)}</span>
               </button>
             ))}
+            {addingPage ? (
+              <form
+                className="inline-flex items-center gap-1.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const url = pageUrl.trim();
+                  if (!/^https?:\/\//i.test(url)) {
+                    toast.error("Paste a full http(s) URL.");
+                    return;
+                  }
+                  addSource.mutate({ rulebookId: data.id, url });
+                }}
+              >
+                <Input
+                  autoFocus
+                  value={pageUrl}
+                  onChange={(e) => setPageUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setAddingPage(false);
+                  }}
+                  placeholder="https://… FAQ or updates page"
+                  aria-label="Page URL to track"
+                  className="h-6 w-64 rounded-full px-2.5 font-mono text-[11px]"
+                />
+                <Button type="submit" size="sm" className="h-6 rounded-full px-2.5 text-[11px]" disabled={addSource.isPending}>
+                  {addSource.isPending ? "Fetching…" : "Track"}
+                </Button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingPage(true)}
+                className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <IconPlus className="size-3" /> Add page
+              </button>
+            )}
           </div>
         </div>
 
@@ -370,6 +457,10 @@ export default function RulebookRoute() {
             focusParagraph={selected && selected.sourceId === activeSource.id ? selected.quoteParagraph : null}
             quote={selected?.quote ?? null}
             addedParagraphs={addedSet}
+            onQuote={(text) => {
+              setDraftSourceId(activeSource.id);
+              setDraft({ kind: "requirement", quote: text });
+            }}
           />
         ) : (
           <p className="p-6 text-sm text-muted-foreground">No pages tracked.</p>
@@ -390,6 +481,31 @@ export default function RulebookRoute() {
             return;
           }
           update.mutate({ id: editing.id, ...patch });
+        }}
+      />
+
+      <EditFactDialog
+        fact={null}
+        draft={draft}
+        open={Boolean(draft)}
+        pending={saveFacts.isPending}
+        onOpenChange={(open) => {
+          if (!open) setDraft(null);
+        }}
+        onSave={(patch: FactPatch) => {
+          saveFacts.mutate({
+            rulebookId: data.id,
+            facts: [
+              {
+                kind: patch.kind ?? "requirement",
+                label: patch.label ?? "",
+                ...(patch.detail ? { detail: patch.detail } : {}),
+                ...(patch.quote ? { quote: patch.quote } : {}),
+                ...(patch.quote && draftSourceId ? { sourceId: draftSourceId } : {}),
+                ...(patch.dueLocal ? { dueLocal: patch.dueLocal, timeZone: patch.timeZone ?? "UTC" } : {}),
+              },
+            ],
+          });
         }}
       />
     </main>

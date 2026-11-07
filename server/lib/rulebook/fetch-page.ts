@@ -58,11 +58,9 @@ export async function fetchPage(
     res = await fetch(target, {
       redirect: "follow",
       signal: controller.signal,
-      headers: {
-        "user-agent": USER_AGENT,
-        accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
-        "accept-language": "en-US,en;q=0.9",
-      },
+      // Minimal headers on purpose: a browser-like Accept header from a
+      // non-browser client trips some bot shields (seen on Devpost, 403).
+      headers: { "user-agent": USER_AGENT, accept: "*/*" },
     });
   } catch (error) {
     clearTimeout(timer);

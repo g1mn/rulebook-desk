@@ -24,19 +24,26 @@ export interface FactPatch {
   timeZone?: string;
 }
 
+/**
+ * Edit an existing fact, or (with `fact` null and `draft` set) add a new one
+ * by hand. Both paths go through the same actions the agent uses.
+ */
 export function EditFactDialog({
   fact,
+  draft,
   open,
   pending,
   onOpenChange,
   onSave,
 }: {
   fact: Fact | null;
+  draft?: FactPatch | null;
   open: boolean;
   pending: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (patch: FactPatch) => void;
 }) {
+  const creating = !fact;
   const [label, setLabel] = useState("");
   const [detail, setDetail] = useState("");
   const [kind, setKind] = useState<FactKind>("requirement");
@@ -45,17 +52,35 @@ export function EditFactDialog({
   const [zone, setZone] = useState("");
 
   useEffect(() => {
-    if (!fact) return;
-    setLabel(fact.label);
-    setDetail(fact.detail ?? "");
-    setKind(fact.kind as FactKind);
-    setQuote(fact.quote ?? "");
-    setDueLocal(fact.dueLocal ?? "");
-    setZone(fact.dueTimeZone ?? "");
-  }, [fact]);
+    if (fact) {
+      setLabel(fact.label);
+      setDetail(fact.detail ?? "");
+      setKind(fact.kind as FactKind);
+      setQuote(fact.quote ?? "");
+      setDueLocal(fact.dueLocal ?? "");
+      setZone(fact.dueTimeZone ?? "");
+    } else if (open) {
+      setLabel(draft?.label ?? "");
+      setDetail(draft?.detail ?? "");
+      setKind(draft?.kind ?? "requirement");
+      setQuote(draft?.quote ?? "");
+      setDueLocal(draft?.dueLocal ?? "");
+      setZone(draft?.timeZone ?? "");
+    }
+  }, [fact, draft, open]);
 
   function save(event: React.FormEvent) {
     event.preventDefault();
+    if (creating) {
+      onSave({
+        label: label.trim(),
+        kind,
+        ...(detail.trim() ? { detail: detail.trim() } : {}),
+        ...(quote.trim() ? { quote: quote.trim() } : {}),
+        ...(dueLocal ? { dueLocal, timeZone: zone.trim() || "UTC" } : {}),
+      });
+      return;
+    }
     if (!fact) return;
     const patch: FactPatch = {};
     if (label.trim() !== fact.label) patch.label = label.trim();
@@ -77,7 +102,7 @@ export function EditFactDialog({
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={save} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>Edit fact</DialogTitle>
+            <DialogTitle>{creating ? "Add fact" : "Edit fact"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
             <div className="space-y-1.5">
@@ -133,7 +158,7 @@ export function EditFactDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={pending || !label.trim()}>
-              {pending ? "Saving…" : "Save"}
+              {pending ? "Saving…" : creating ? "Add as proposed" : "Save"}
             </Button>
           </DialogFooter>
         </form>

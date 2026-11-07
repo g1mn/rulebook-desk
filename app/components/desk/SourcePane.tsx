@@ -1,7 +1,8 @@
 import { useActionQuery } from "@agent-native/core/client/hooks";
-import { IconExternalLink } from "@tabler/icons-react";
-import { useEffect, useMemo, useRef } from "react";
+import { IconExternalLink, IconQuote } from "@tabler/icons-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { hostOf, relativeTime } from "@/lib/rulebook";
 import { cn } from "@/lib/utils";
@@ -58,17 +59,29 @@ export function SourcePane({
   focusParagraph,
   quote,
   addedParagraphs,
+  onQuote,
 }: {
   source: SourcePaneSource;
   focusParagraph: number | null;
   quote: string | null;
   addedParagraphs: Set<string>;
+  /** Called with the selected page text when the person saves it as a fact. */
+  onQuote?: (text: string) => void;
 }) {
   const { data, isPending, error } = useActionQuery("read-source", {
     sourceId: source.id,
     limit: 500,
   });
   const listRef = useRef<HTMLDivElement>(null);
+  const [selection, setSelection] = useState("");
+
+  function captureSelection() {
+    const sel = window.getSelection();
+    const text = sel?.toString().replace(/\s+/g, " ").trim() ?? "";
+    const inside =
+      sel?.anchorNode && listRef.current?.contains(sel.anchorNode);
+    setSelection(inside && text.length >= 6 ? text.slice(0, 800) : "");
+  }
 
   useEffect(() => {
     if (focusParagraph == null || !listRef.current) return;
@@ -104,6 +117,8 @@ export function SourcePane({
       </div>
       <div
         ref={listRef}
+        onMouseUp={onQuote ? captureSelection : undefined}
+        onKeyUp={onQuote ? captureSelection : undefined}
         className="desk-quote min-h-0 flex-1 overflow-y-auto bg-[var(--desk-paper)] px-5 py-4 text-[13.5px] leading-relaxed"
       >
         {isPending ? (
@@ -130,7 +145,7 @@ export function SourcePane({
                   isNew && "border-l-2 border-[var(--desk-verified)] pl-[30px]",
                 )}
               >
-                <span className="absolute left-0 top-0.5 w-6 text-right font-sans text-[10px] tabular-nums text-muted-foreground/70">
+                <span className="absolute left-0 top-0.5 w-6 select-none text-right font-sans text-[10px] tabular-nums text-muted-foreground/70">
                   ¶{p.i}
                 </span>
                 {focused ? <Highlighted text={p.text} quote={quote} /> : p.text}
@@ -139,6 +154,25 @@ export function SourcePane({
           })
         )}
       </div>
+      {onQuote && selection ? (
+        <div className="flex items-center gap-2 border-t border-border bg-background px-4 py-2 text-xs">
+          <IconQuote className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="desk-quote min-w-0 flex-1 truncate italic text-muted-foreground">
+            {selection}
+          </span>
+          <Button
+            size="sm"
+            className="h-7 shrink-0 text-xs"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              onQuote(selection);
+              setSelection("");
+            }}
+          >
+            Save as fact
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
