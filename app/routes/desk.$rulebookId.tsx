@@ -1,5 +1,6 @@
 import { sendToAgentChat } from "@agent-native/core/client/agent-chat";
 import {
+  actionErrorCode,
   actionErrorMessage,
   deleteClientAppState,
   useActionMutation,
@@ -157,7 +158,12 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
   const [draftSourceId, setDraftSourceId] = useState<string | null>(null);
   const saveFacts = useActionMutation("save-facts", {
     onSuccess: (result) => {
-      if (result.rejected.length) toast.error(result.rejected[0]!.reason);
+      if (result.rejected.length)
+        toast.error(
+          result.rejected[0]!.reason.startsWith("Quote not found")
+            ? "That sentence isn't on the tracked page, so it can't be saved."
+            : result.rejected[0]!.reason,
+        );
       else toast.success(result.message);
       setDraft(null);
       setDraftSourceId(null);
@@ -172,7 +178,12 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
           { replace: true },
         );
     },
-    onError: (err) => toast.error(actionErrorMessage(err) ?? "Could not add the fact."),
+    onError: (err) =>
+      toast.error(
+        actionErrorCode(err) === "no_valid_facts"
+          ? "That sentence isn't on the tracked page, so it can't be saved. Select the text in the page viewer to quote it exactly."
+          : (actionErrorMessage(err) ?? "Could not add the fact."),
+      ),
   });
 
   const [addingPage, setAddingPage] = useState(false);
