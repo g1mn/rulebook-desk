@@ -77,6 +77,11 @@ export default defineAction({
     }
     let quoteStatus = fact.quoteStatus;
     if (args.quote !== undefined && args.quote.trim() !== (fact.quote ?? "")) {
+      if (!args.quote.trim() && editor !== "person")
+        fail("Agents cannot remove a quote. Replace it with the exact sentence instead.", {
+          errorCode: "quote_required",
+          statusCode: 422,
+        });
       const check = await checkQuote(fact.rulebookId, args.quote, fact.sourceId);
       if (check.quoteStatus === "unverified" && editor !== "person")
         fail("Quote not found verbatim on any fetched page.", {
@@ -103,11 +108,14 @@ export default defineAction({
         const zone = resolveTimeZone(zoneInput);
         if (!zone)
           fail(`Unknown time zone "${zoneInput}".`, { errorCode: "invalid_time" });
-        patch.dueLocal = local;
-        patch.dueTimeZone = zone;
-        patch.dueAt = zonedLocalToUtc(local, zone);
+        if (local !== fact.dueLocal || zone !== fact.dueTimeZone) {
+          patch.dueLocal = local;
+          patch.dueTimeZone = zone;
+          patch.dueAt = zonedLocalToUtc(local, zone);
+          contentChanged = true;
+        }
       }
-      contentChanged = true;
+      if (args.dueLocal === null && fact.dueLocal !== null) contentChanged = true;
     }
     if (args.done !== undefined) patch.done = args.done;
 

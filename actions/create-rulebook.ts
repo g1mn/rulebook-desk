@@ -59,7 +59,8 @@ export default defineAction({
       updatedAt: now,
       ownerEmail,
       orgId,
-      visibility: orgId ? ("org" as const) : ("private" as const),
+      // Deadlines can be personal: private until shared.
+      visibility: "private" as const,
     };
     await db.insert(schema.rulebooks).values(rulebook);
     const sourceRows = urls.map((url) => ({

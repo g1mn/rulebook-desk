@@ -8,7 +8,9 @@ import {
   IconX,
 } from "@tabler/icons-react";
 
+import { InlineDiff } from "@/components/desk/ChangeDiff";
 import { Checkbox } from "@/components/ui/checkbox";
+import { wordDiff } from "@/lib/word-diff";
 import {
   countdown,
   editorLabel,
@@ -54,6 +56,7 @@ export function FactRow({
   onReject,
   onEdit,
   onToggleDone,
+  nowSays = null,
 }: {
   fact: Fact;
   selected: boolean;
@@ -64,6 +67,8 @@ export function FactRow({
   onReject: () => void;
   onEdit: () => void;
   onToggleDone: (done: boolean) => void;
+  /** For a stale fact: the new paragraph that most likely replaced its quote. */
+  nowSays?: string | null;
 }) {
   const isChecklist = fact.kind === "requirement" || fact.kind === "submission";
   const c = fact.dueAt ? countdown(fact.dueAt) : null;
@@ -78,6 +83,8 @@ export function FactRow({
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={(e) => {
+        // Only the row itself: Enter/Space on Approve, Edit or the checkbox must reach them.
+        if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onSelect();
@@ -178,6 +185,15 @@ export function FactRow({
             No quote — add the exact sentence before approving.
           </p>
         )}
+
+        {fact.status === "stale" && fact.quote && nowSays ? (
+          <p className="desk-quote mt-1.5 rounded-md bg-background/60 px-2 py-1 text-[12.5px] leading-snug">
+            <span className="mr-1.5 font-sans text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              page now says
+            </span>
+            <InlineDiff parts={wordDiff(fact.quote, nowSays).filter((p) => p.kind !== "del" || p.text.trim())} />
+          </p>
+        ) : null}
 
         {fact.status === "stale" && fact.staleReason ? (
           <p className="mt-1 text-[11px] font-medium text-[var(--desk-stale)]">

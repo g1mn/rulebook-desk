@@ -19,6 +19,7 @@ import { toast } from "sonner";
 
 import { AutomationsPanel } from "@/components/desk/AutomationsPanel";
 import { DeadlineTimeline } from "@/components/desk/DeadlineTimeline";
+import { useTick } from "@/hooks/use-tick";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,7 @@ export default function DeskIndex() {
   const [asOf, setAsOf] = useState("");
   const [showArchive, setShowArchive] = useState(false);
   const tz = userTimeZone();
+  useTick();
 
   const create = useActionMutation("create-rulebook", {
     onSuccess: (result) => {

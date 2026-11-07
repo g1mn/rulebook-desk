@@ -60,7 +60,22 @@ export const ZONE_ALIASES: Record<string, string> = {
   PST: "America/Los_Angeles",
   PDT: "America/Los_Angeles",
   MT: "America/Denver",
+  MST: "America/Denver",
+  MDT: "America/Denver",
   CT: "America/Chicago",
+  CST: "America/Chicago",
+  CDT: "America/Chicago",
+  HST: "Pacific/Honolulu",
+  AKST: "America/Anchorage",
+  AKDT: "America/Anchorage",
+  AEST: "Australia/Sydney",
+  AEDT: "Australia/Sydney",
+  SGT: "Asia/Singapore",
+  HKT: "Asia/Hong_Kong",
+  EET: "Europe/Athens",
+  EEST: "Europe/Athens",
+  WET: "Europe/Lisbon",
+  BRT: "America/Sao_Paulo",
   ET: "America/New_York",
   EST: "America/New_York",
   EDT: "America/New_York",
@@ -79,7 +94,9 @@ export function resolveTimeZone(input: string): string | null {
   const trimmed = input.trim();
   const alias = ZONE_ALIASES[trimmed.toUpperCase()];
   if (alias) return alias;
-  return isValidTimeZone(trimmed) ? trimmed : null;
+  // Bare abbreviations outside the alias table are ambiguous (ICU maps "AST"
+  // to Anchorage, "CST" to Chicago), so only IANA names are accepted.
+  return trimmed.includes("/") && isValidTimeZone(trimmed) ? trimmed : null;
 }
 
 const MONTHS = [

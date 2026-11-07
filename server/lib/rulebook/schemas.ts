@@ -60,6 +60,7 @@ export const refreshOut = z.object({
     "unchanged",
     "changed",
     "first-fetch",
+    "compared",
     "error",
   ]),
   title: z.string().nullable(),
@@ -68,6 +69,7 @@ export const refreshOut = z.object({
   removed: z.number(),
   staleFactIds: z.array(z.string()),
   changeId: z.string().nullable(),
+  archivedAt: z.string().nullable().optional(),
   error: z.string().optional(),
 });
 

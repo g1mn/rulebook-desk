@@ -49,7 +49,8 @@ export function formatInZone(iso: string, timeZone: string): string {
     timeZoneName: "short",
   }).format(new Date(iso));
   // "GMT+9" says little; name the city instead ("Seoul time").
-  if (/GMT[+-]\d/.test(text) && timeZone.includes("/")) {
+  if (timeZone === "Etc/GMT+12") return text.replace(/GMT-12/, "AoE (UTC−12)");
+  if (/GMT[+-]\d/.test(text) && timeZone.includes("/") && !timeZone.startsWith("Etc/")) {
     const city = timeZone.split("/").pop()!.replace(/_/g, " ");
     return text.replace(/GMT[+-][\d:]+/, `${city} time`);
   }

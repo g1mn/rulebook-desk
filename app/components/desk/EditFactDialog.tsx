@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -71,6 +72,10 @@ export function EditFactDialog({
 
   function save(event: React.FormEvent) {
     event.preventDefault();
+    if (dueLocal && !zone.trim()) {
+      toast.error("Add the time zone the page uses (for example PT, UTC or Asia/Seoul).");
+      return;
+    }
     if (creating) {
       onSave({
         label: label.trim(),

@@ -1,6 +1,7 @@
 import { sendToAgentChat } from "@agent-native/core/client/agent-chat";
 import {
   actionErrorMessage,
+  deleteClientAppState,
   useActionMutation,
   useActionQuery,
   useDbSync,
@@ -22,6 +23,7 @@ import { Link, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import { ArchiveMenu } from "@/components/desk/ArchiveMenu";
+import { ChangeDiff } from "@/components/desk/ChangeDiff";
 import { DeleteRulebookButton } from "@/components/desk/DeleteRulebookButton";
 import { EditFactDialog, type FactPatch } from "@/components/desk/EditFactDialog";
 import { FactRow, type Fact } from "@/components/desk/FactRow";
@@ -37,6 +39,8 @@ import {
   relativeTime,
   userTimeZone,
 } from "@/lib/rulebook";
+import { useTick } from "@/hooks/use-tick";
+import { replacementFor } from "@/lib/word-diff";
 import { TAB_ID } from "@/lib/tab-id";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +51,12 @@ type RulebookData = {
 
 export default function RulebookRoute() {
   const { rulebookId = "" } = useParams();
+  // Keyed so tab, flash and dialog state never carry over between rulebooks.
+  return <RulebookView key={rulebookId} rulebookId={rulebookId} />;
+}
+
+function RulebookView({ rulebookId }: { rulebookId: string }) {
+  useTick();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedId = searchParams.get("fact");
   const queryClient = useQueryClient();
@@ -96,6 +106,13 @@ export default function RulebookRoute() {
       { requestSource: TAB_ID },
     ).catch(() => {});
   }, [selected?.id, selected?.status, rulebookId]);
+  // Leaving the page: the agent should not keep "seeing" this selection.
+  useEffect(
+    () => () => {
+      void deleteClientAppState(`selection:${TAB_ID}`, { requestSource: TAB_ID }).catch(() => {});
+    },
+    [],
+  );
 
   const update = useActionMutation("update-fact", {
     onMutate: async (input) => {
@@ -123,7 +140,11 @@ export default function RulebookRoute() {
       queryClient.setQueryData(queryKey, (context as { previous?: unknown } | undefined)?.previous);
       toast.error(actionErrorMessage(err) ?? "Could not update the fact.");
     },
+  });
+  // The edit dialog has its own mutation, so a row click never closes it.
+  const edit = useActionMutation("update-fact", {
     onSuccess: () => setEditing(null),
+    onError: (err) => toast.error(actionErrorMessage(err) ?? "Could not save the fact."),
   });
 
   const check = useActionMutation("check-sources", {
@@ -377,7 +398,7 @@ export default function RulebookRoute() {
                 )}
                 <span className="text-sm font-medium">
                   {latest.kind === "archive"
-                    ? `Rules changed — Internet Archive copy of ${formatWayback(latest.archivedAt) ?? "a later date"}${latest.fromArchivedAt ? ` vs ${formatWayback(latest.fromArchivedAt)}` : ""}`
+                    ? `Rules changed between ${latest.fromArchivedAt ? `the Internet Archive copy of ${formatWayback(latest.fromArchivedAt)}` : "your earlier copy"} and ${latest.archivedAt ? `the copy of ${formatWayback(latest.archivedAt)}` : "today's page"}`
                     : `Rules changed ${relativeTime(latest.detectedAt)}`}
                 </span>
                 <span className="text-xs text-muted-foreground">
@@ -397,18 +418,7 @@ export default function RulebookRoute() {
                 </div>
               </div>
               {showDiff ? (
-                <div className="desk-quote mt-3 max-h-64 space-y-1.5 overflow-y-auto rounded-lg bg-background/70 p-3 text-[12.5px] leading-snug">
-                  {latest.removed.map((p, i) => (
-                    <p key={"r" + i} className="text-[var(--desk-stale)] line-through decoration-1">
-                      − {p}
-                    </p>
-                  ))}
-                  {latest.added.map((p, i) => (
-                    <p key={"a" + i} className="text-[var(--desk-verified)]">
-                      + {p}
-                    </p>
-                  ))}
-                </div>
+                <ChangeDiff removed={latest.removed} added={latest.added} />
               ) : null}
             </div>
           ) : null}
@@ -450,6 +460,16 @@ export default function RulebookRoute() {
                         onReject={() => update.mutate({ id: f.id, status: "rejected" })}
                         onEdit={() => setEditing(f)}
                         onToggleDone={(done) => update.mutate({ id: f.id, done })}
+                        nowSays={
+                          f.status === "stale" && f.quote
+                            ? replacementFor(
+                                f.quote,
+                                data.changes
+                                  .filter((c) => c.affectedFactIds.includes(f.id))
+                                  .flatMap((c) => c.added),
+                              )
+                            : null
+                        }
                       />
                     ))}
                   </div>
@@ -481,7 +501,7 @@ export default function RulebookRoute() {
       <EditFactDialog
         fact={editing}
         open={Boolean(editing)}
-        pending={update.isPending}
+        pending={edit.isPending}
         onOpenChange={(open) => {
           if (!open) setEditing(null);
         }}
@@ -491,7 +511,7 @@ export default function RulebookRoute() {
             setEditing(null);
             return;
           }
-          update.mutate({ id: editing.id, ...patch });
+          edit.mutate({ id: editing.id, ...patch });
         }}
       />
 

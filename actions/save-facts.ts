@@ -15,6 +15,7 @@ import {
   checkQuote,
   editorFor,
   requireRulebook,
+  rulebookTexts,
 } from "../server/lib/rulebook/service.js";
 import { normalizeForMatch } from "../server/lib/rulebook/text.js";
 import {
@@ -98,6 +99,7 @@ export default defineAction({
       ]),
     );
     const now = new Date().toISOString();
+    const texts = await rulebookTexts(rulebook.id);
     const rows: (typeof schema.facts.$inferInsert)[] = [];
     const rejected: { index: number; label: string; reason: string }[] = [];
     const duplicates: { index: number; existingId: string }[] = [];
@@ -138,7 +140,7 @@ export default defineAction({
           }
         }
       }
-      const check = await checkQuote(rulebook.id, f.quote, f.sourceId);
+      const check = await checkQuote(rulebook.id, f.quote, f.sourceId, texts);
       if (check.quoteStatus === "unverified") {
         rejected.push({
           index,
@@ -147,9 +149,10 @@ export default defineAction({
         });
         continue;
       }
-      seen.set(key, "pending");
+      const id = crypto.randomUUID();
+      seen.set(key, id);
       rows.push({
-        id: crypto.randomUUID(),
+        id,
         rulebookId: rulebook.id,
         sourceId: check.sourceId,
         kind: f.kind,

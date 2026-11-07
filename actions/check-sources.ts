@@ -1,6 +1,6 @@
 import { defineAction } from "@agent-native/core/action";
 import { accessFilter } from "@agent-native/core/sharing";
-import { eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
@@ -45,6 +45,7 @@ export default defineAction({
             .select()
             .from(schema.rulebooks)
             .where(accessFilter(schema.rulebooks, schema.rulebookShares, undefined, "editor"))
+            .orderBy(desc(schema.rulebooks.updatedAt))
             .limit(50);
       if (!books.length) return { results: [], message: "No rulebooks to check." };
       const srcRows = await db

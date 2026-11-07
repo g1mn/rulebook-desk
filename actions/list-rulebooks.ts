@@ -143,7 +143,12 @@ export default defineAction({
           requirementsTotal: reqs.length,
           lastChangeAt: lastLive?.detectedAt ?? null,
           deadlines: f
-            .filter((r) => r.dueAt && r.status !== "rejected")
+            .filter(
+              (r) =>
+                r.dueAt &&
+                r.status !== "rejected" &&
+                r.dueAt >= new Date(Date.now() - 86_400_000).toISOString(),
+            )
             .sort((x, y) => (x.dueAt! < y.dueAt! ? -1 : 1))
             .slice(0, 12)
             .map((r) => ({ label: r.label, dueAt: r.dueAt!, status: r.status })),

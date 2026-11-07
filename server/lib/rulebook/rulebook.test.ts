@@ -98,3 +98,24 @@ describe("noise filter keeps date changes", () => {
     expect(d.added).toEqual(["Deadline: Dec 18, 2026"]);
   });
 });
+
+describe("noise filter keeps rule edits", () => {
+  it("prize, team size and table-row dates are changes; counters are not", () => {
+    expect(withoutCounterNoise(diffParagraphs("Grand Prize | $30,000 USD", "Grand Prize | $10,000 USD")).added).toHaveLength(1);
+    expect(withoutCounterNoise(diffParagraphs("Teams of up to 4 people.", "Teams of up to 2 people.")).added).toHaveLength(1);
+    expect(withoutCounterNoise(diffParagraphs("Final Submission | November 9, 2026 11:59 PM PT", "Final Submission | November 16, 2026 11:59 PM PT")).added).toHaveLength(1);
+    expect(withoutCounterNoise(diffParagraphs("1,203 registered", "1,388 registered"))).toEqual({ added: [], removed: [] });
+  });
+  it("rejects ambiguous bare zone abbreviations", () => {
+    expect(resolveTimeZone("AST")).toBeNull();
+    expect(resolveTimeZone("CST")).toBe("America/Chicago");
+    expect(resolveTimeZone("Asia/Riyadh")).toBe("Asia/Riyadh");
+  });
+  it("strips unclosed script and comment without hanging", () => {
+    const big = "<body><p>Rule one.</p><!-- open " + "<script>".repeat(2000) + "x".repeat(200000);
+    const t0 = Date.now();
+    const { text } = htmlToText(big);
+    expect(Date.now() - t0).toBeLessThan(500);
+    expect(text).toBe("Rule one.");
+  });
+});

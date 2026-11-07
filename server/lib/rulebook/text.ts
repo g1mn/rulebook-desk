@@ -45,6 +45,55 @@ export function decodeEntities(input: string): string {
 const BLOCK_TAGS =
   "address|article|aside|blockquote|br|dd|details|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|summary|table|tbody|tfoot|thead|tr|ul";
 
+const DROP_TAGS = [
+  "script",
+  "style",
+  "noscript",
+  "template",
+  "svg",
+  "canvas",
+  "iframe",
+  "head",
+  "nav",
+  "footer",
+];
+
+/** Remove every open...close span with indexOf scans (linear, no regex backtracking). */
+function stripBetween(input: string, open: string, close: string): string {
+  const lower = input.toLowerCase();
+  let out = "";
+  let i = 0;
+  for (;;) {
+    const start = lower.indexOf(open, i);
+    if (start === -1) return out + input.slice(i);
+    out += input.slice(i, start) + " ";
+    const end = lower.indexOf(close, start + open.length);
+    if (end === -1) return out;
+    i = end + close.length;
+  }
+}
+
+/** Remove <tag ...>...</tag> elements (not nested) in linear time. */
+function stripElement(input: string, tag: string): string {
+  const lower = input.toLowerCase();
+  const open = `<${tag}`;
+  const close = `</${tag}`;
+  let out = "";
+  let i = 0;
+  for (;;) {
+    let start = lower.indexOf(open, i);
+    while (start !== -1 && /[a-z0-9-]/.test(lower[start + open.length] ?? "")) {
+      start = lower.indexOf(open, start + open.length);
+    }
+    if (start === -1) return out + input.slice(i);
+    out += input.slice(i, start) + " ";
+    const end = lower.indexOf(close, start + open.length);
+    if (end === -1) return out;
+    const gt = lower.indexOf(">", end);
+    i = gt === -1 ? input.length : gt + 1;
+  }
+}
+
 /** Turn an HTML page into readable paragraphs separated by blank lines. */
 export function htmlToText(html: string): { title: string; text: string } {
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -57,10 +106,9 @@ export function htmlToText(html: string): { title: string; text: string } {
   // Prefer the page's <main> landmark when it holds most of the content.
   const mainMatch = body.match(/<main\b[^>]*>([\s\S]*)<\/main>/i);
   if (mainMatch?.[1] && mainMatch[1].length > body.length * 0.3) body = mainMatch[1];
+  body = stripBetween(body, "<!--", "-->");
+  for (const tag of DROP_TAGS) body = stripElement(body, tag);
   body = body
-    .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<(nav|footer)\b[\s\S]*?<\/\1>/gi, " ")
-    .replace(/<(script|style|noscript|template|svg|canvas|iframe|head)\b[\s\S]*?<\/\1>/gi, " ")
     .replace(/<\/t[dh]>\s*<t[dh]\b[^>]*>/gi, " | ")
     .replace(/<\/?t[dh]\b[^>]*>/gi, " ")
     .replace(new RegExp(`<\\/?(?:${BLOCK_TAGS})\\b[^>]*>`, "gi"), "\n\n")
@@ -160,6 +208,8 @@ export function diffParagraphs(before: string, after: string): ParagraphDiff {
   return { added, removed };
 }
 
+const COUNTER =
+  /\(\s*[\d,]+\s*\)|\b[\d,]+\s+(participants|registered|registrants|submissions|projects|views|likes|followers|people joined|hackers)\b|\b(participants|registrants|submissions|projects|followers)\s*[:(]?\s*[\d,]+/i;
 const DATEISH =
   /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d|\b\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\b|\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(am|pm|a\.m\.|p\.m\.)|\b(19|20)\d{2}\b|\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b|deadline|due/i;
 
@@ -169,8 +219,13 @@ const DATEISH =
  */
 export function withoutCounterNoise(diff: ParagraphDiff): ParagraphDiff {
   const shape = (p: string) => normalizeForMatch(p).replace(/[\d,.]+/g, "#");
-  // Dates and times are never noise: "Deadline: Dec 4, 2026" -> "Dec 18" is a rule change.
-  const short = (p: string) => p.length <= 80 && /\d/.test(p) && !DATEISH.test(p);
+  // Only real counters ("Participants (547)", "1,203 registered") are noise.
+  // Dates, money, percentages and team sizes are rule changes.
+  const short = (p: string) =>
+    p.length <= 80 &&
+    COUNTER.test(p) &&
+    !DATEISH.test(p) &&
+    !/[$€£¥₩%]|\b(usd|eur|krw|prize|team|teams|members per|up to)\b/i.test(p);
   const removedShapes = new Map<string, number>();
   for (const p of diff.removed)
     if (short(p)) removedShapes.set(shape(p), (removedShapes.get(shape(p)) ?? 0) + 1);
