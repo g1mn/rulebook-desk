@@ -17,6 +17,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
+import { AutomationsPanel } from "@/components/desk/AutomationsPanel";
 import { DeadlineTimeline } from "@/components/desk/DeadlineTimeline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,6 +159,8 @@ export default function DeskIndex() {
       ) : (
         <DeadlineTimeline items={timeline} />
       )}
+
+      <AutomationsPanel />
 
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium text-muted-foreground">
