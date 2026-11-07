@@ -200,7 +200,7 @@ export default function DeskIndex() {
               <Link
                 key={b.id}
                 to={`/desk/${b.id}`}
-                className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="group flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="desk-serif min-w-0 truncate text-lg leading-tight">
@@ -250,9 +250,9 @@ export default function DeskIndex() {
                     </span>
                   ) : null}
                 </div>
-                <div className="mt-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+                <div className="mt-auto flex min-w-0 flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                   <IconChecklist className="size-3.5" />
-                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div className="h-1 min-w-16 flex-1 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full rounded-full bg-[var(--desk-verified)]"
                       style={{ width: `${pct}%` }}

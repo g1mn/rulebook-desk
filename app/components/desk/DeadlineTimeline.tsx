@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { countdown, shortDate } from "@/lib/rulebook";
@@ -17,7 +17,18 @@ const DAY = 86_400_000;
 /** Upcoming deadlines across every rulebook on one time axis. */
 export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
   const now = Date.now();
-  const { start, end, ticks, placed } = useMemo(() => {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(1000);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setWidth(el.clientWidth || 1000));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  // Chips are ~150px wide; keep chips in one lane at least that far apart.
+  const gap = Math.min(60, (160 / Math.max(width, 200)) * 100);
+  const { start, end, ticks, placed, hidden } = useMemo(() => {
     const upcoming = items
       .filter((i) => new Date(i.dueAt).getTime() >= now - DAY)
       .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
@@ -30,28 +41,39 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
     const tickCount = 6;
     const ticks = Array.from({ length: tickCount + 1 }, (_, i) => startMs + (span * i) / tickCount);
     const lanes: number[] = [];
-    const placed = upcoming.map((item) => {
+    const placed: (TimelineItem & { x: number; lane: number })[] = [];
+    let hidden = 0;
+    for (const item of upcoming) {
       const x = ((new Date(item.dueAt).getTime() - startMs) / span) * 100;
       let lane = 0;
-      while (lanes[lane] !== undefined && x - lanes[lane]! < 14) lane++;
+      while (lanes[lane] !== undefined && x - lanes[lane]! < gap) lane++;
+      if (lane > 3) {
+        hidden++;
+        continue;
+      }
       lanes[lane] = x;
-      return { ...item, x, lane: Math.min(lane, 3) };
-    });
-    return { start: startMs, end: endMs, ticks, placed };
-  }, [items, now]);
+      placed.push({ ...item, x, lane });
+    }
+    return { start: startMs, end: endMs, ticks, placed, hidden };
+  }, [items, now, gap]);
 
   const todayX = ((now - start) / (end - start)) * 100;
 
   return (
     <section
       aria-label="Upcoming deadlines"
-      className="rounded-xl border border-border bg-card px-4 pb-3 pt-4"
+      className="overflow-hidden rounded-xl border border-border bg-card px-4 pb-3 pt-4"
     >
-      <div className="relative h-36">
+      <div ref={boxRef} className="relative h-36">
         {placed.length === 0 ? (
           <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
             Deadlines you approve or review show up here.
           </p>
+        ) : null}
+        {hidden ? (
+          <span className="absolute right-0 top-0 text-[10px] text-muted-foreground">
+            +{hidden} more
+          </span>
         ) : null}
         <div className="absolute inset-x-0 bottom-6 h-px bg-border" />
         <div
@@ -69,7 +91,10 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
             <Link
               key={item.rulebookId + item.label + item.dueAt}
               to={`/desk/${item.rulebookId}`}
-              className="group absolute -translate-x-1/2"
+              className={cn(
+                "group absolute",
+                item.x < 12 ? "translate-x-0" : item.x > 88 ? "-translate-x-full" : "-translate-x-1/2",
+              )}
               style={{ left: `${item.x}%`, bottom: `${24 + 8 + item.lane * 26}px` }}
             >
               <span
