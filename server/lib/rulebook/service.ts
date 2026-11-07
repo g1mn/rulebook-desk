@@ -5,7 +5,12 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { getDb, schema } from "../../db/index.js";
 import { fetchPage } from "./fetch-page.js";
-import { diffParagraphs, findQuote, splitParagraphs } from "./text.js";
+import {
+  diffParagraphs,
+  findQuote,
+  splitParagraphs,
+  withoutCounterNoise,
+} from "./text.js";
 
 export const SOURCE_CHANGED_EVENT = "rulebook.source.changed";
 
@@ -212,7 +217,7 @@ export async function refreshSource(
     .set({
       currentSnapshotId: snapshotId,
       lastCheckedAt: now,
-      lastChangedAt: previous ? now : source.lastChangedAt,
+      lastChangedAt: source.lastChangedAt,
       lastStatus: "ok",
       lastError: null,
       title,
@@ -282,7 +287,22 @@ export async function refreshSource(
     };
   }
 
-  const diff = diffParagraphs(previous.text, page.text);
+  const diff = withoutCounterNoise(diffParagraphs(previous.text, page.text));
+  if (!diff.added.length && !diff.removed.length && !staleFactIds.length) {
+    // Only counters moved (participant counts and the like): keep the new
+    // snapshot, but this is not a rules change.
+    return {
+      sourceId: source.id,
+      url: source.url,
+      status: "unchanged",
+      title,
+      paragraphs,
+      added: 0,
+      removed: 0,
+      staleFactIds,
+      changeId: null,
+    };
+  }
   const changeId = crypto.randomUUID();
   await db.insert(schema.changes).values({
     id: changeId,
@@ -299,9 +319,18 @@ export async function refreshSource(
     orgId: source.orgId,
   });
   await db
+    .update(schema.sources)
+    .set({ lastChangedAt: now })
+    .where(eq(schema.sources.id, source.id));
+  await db
     .update(schema.rulebooks)
     .set({ updatedAt: now })
-    .where(eq(schema.rulebooks.id, rulebook.id));
+    .where(
+      and(
+        eq(schema.rulebooks.id, rulebook.id),
+        accessFilter(schema.rulebooks, schema.rulebookShares, undefined, "editor"),
+      ),
+    );
 
   emit(
     SOURCE_CHANGED_EVENT,

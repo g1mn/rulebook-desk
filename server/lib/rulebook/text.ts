@@ -52,8 +52,12 @@ export function htmlToText(html: string): { title: string; text: string } {
   let body = html;
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   if (bodyMatch?.[1]) body = bodyMatch[1];
+  // Prefer the page's <main> landmark when it holds most of the content.
+  const mainMatch = body.match(/<main\b[^>]*>([\s\S]*)<\/main>/i);
+  if (mainMatch?.[1] && mainMatch[1].length > body.length * 0.3) body = mainMatch[1];
   body = body
     .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(nav|footer)\b[\s\S]*?<\/\1>/gi, " ")
     .replace(/<(script|style|noscript|template|svg|canvas|iframe|head)\b[\s\S]*?<\/\1>/gi, " ")
     .replace(new RegExp(`<\\/?(?:${BLOCK_TAGS})\\b[^>]*>`, "gi"), "\n\n")
     .replace(/<[^>]+>/g, " ");
@@ -149,6 +153,41 @@ export function diffParagraphs(before: string, after: string): ParagraphDiff {
     seenA.set(k, n);
     if (n > (bCount.get(k) ?? 0)) removed.push(p);
   }
+  return { added, removed };
+}
+
+/**
+ * Drop counter churn ("Participants (547)" -> "Participants (2421)"): short
+ * paragraph pairs that differ only in their digits are not rule changes.
+ */
+export function withoutCounterNoise(diff: ParagraphDiff): ParagraphDiff {
+  const shape = (p: string) => normalizeForMatch(p).replace(/[\d,.]+/g, "#");
+  const short = (p: string) => p.length <= 80 && /\d/.test(p);
+  const removedShapes = new Map<string, number>();
+  for (const p of diff.removed)
+    if (short(p)) removedShapes.set(shape(p), (removedShapes.get(shape(p)) ?? 0) + 1);
+  const matched = new Map<string, number>();
+  const added = diff.added.filter((p) => {
+    if (!short(p)) return true;
+    const k = shape(p);
+    const avail = (removedShapes.get(k) ?? 0) - (matched.get(k) ?? 0);
+    if (avail > 0) {
+      matched.set(k, (matched.get(k) ?? 0) + 1);
+      return false;
+    }
+    return true;
+  });
+  const used = new Map<string, number>();
+  const removed = diff.removed.filter((p) => {
+    if (!short(p)) return true;
+    const k = shape(p);
+    const n = used.get(k) ?? 0;
+    if (n < (matched.get(k) ?? 0)) {
+      used.set(k, n + 1);
+      return false;
+    }
+    return true;
+  });
   return { added, removed };
 }
 
