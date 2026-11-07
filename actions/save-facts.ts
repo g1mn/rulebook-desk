@@ -17,7 +17,11 @@ import {
   requireRulebook,
 } from "../server/lib/rulebook/service.js";
 import { normalizeForMatch } from "../server/lib/rulebook/text.js";
-import { resolveTimeZone, zonedLocalToUtc } from "../server/lib/rulebook/time.js";
+import {
+  dateInQuote,
+  resolveTimeZone,
+  zonedLocalToUtc,
+} from "../server/lib/rulebook/time.js";
 
 const factIn = z.object({
   kind: factKind,
@@ -59,7 +63,7 @@ const factIn = z.object({
 
 export default defineAction({
   description:
-    "Save deadlines and requirements for a rulebook in one batch. Each fact needs a verbatim quote from read-source; quotes not found on any fetched page are rejected (not saved) and listed in `rejected`. Deadline times are converted to UTC in code from dueLocal + timeZone, so never convert times yourself. New facts start as proposed for human review.",
+    "Save deadlines and requirements for a rulebook in one batch. Each fact needs a verbatim quote from read-source; quotes not found on any fetched page are rejected (not saved) and listed in `rejected`, and a deadline is rejected unless its quote states that date (and hour, if the quote has a time). Deadline times are converted to UTC in code from dueLocal + timeZone, so never convert times yourself. New facts start as proposed for human review.",
   schema: z.object({
     rulebookId: z.string().describe("Rulebook id"),
     facts: z.array(factIn).min(1).max(40).describe("Facts to save"),
@@ -122,6 +126,17 @@ export default defineAction({
           continue;
         }
         dueAt = zonedLocalToUtc(f.dueLocal, timeZone);
+        if (f.quote?.trim()) {
+          const dated = dateInQuote(f.dueLocal, f.quote);
+          if (!dated.ok) {
+            rejected.push({
+              index,
+              label: f.label,
+              reason: `${dated.reason} Quote the sentence that states this date.`,
+            });
+            continue;
+          }
+        }
       }
       const check = await checkQuote(rulebook.id, f.quote, f.sourceId);
       if (check.quoteStatus === "unverified") {

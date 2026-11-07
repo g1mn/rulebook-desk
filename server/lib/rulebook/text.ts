@@ -160,13 +160,17 @@ export function diffParagraphs(before: string, after: string): ParagraphDiff {
   return { added, removed };
 }
 
+const DATEISH =
+  /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d|\b\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\b|\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(am|pm|a\.m\.|p\.m\.)|\b(19|20)\d{2}\b|\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b|deadline|due/i;
+
 /**
  * Drop counter churn ("Participants (547)" -> "Participants (2421)"): short
  * paragraph pairs that differ only in their digits are not rule changes.
  */
 export function withoutCounterNoise(diff: ParagraphDiff): ParagraphDiff {
   const shape = (p: string) => normalizeForMatch(p).replace(/[\d,.]+/g, "#");
-  const short = (p: string) => p.length <= 80 && /\d/.test(p);
+  // Dates and times are never noise: "Deadline: Dec 4, 2026" -> "Dec 18" is a rule change.
+  const short = (p: string) => p.length <= 80 && /\d/.test(p) && !DATEISH.test(p);
   const removedShapes = new Map<string, number>();
   for (const p of diff.removed)
     if (short(p)) removedShapes.set(shape(p), (removedShapes.get(shape(p)) ?? 0) + 1);

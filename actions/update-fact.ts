@@ -9,7 +9,11 @@ import {
   editorFor,
   requireRulebook,
 } from "../server/lib/rulebook/service.js";
-import { resolveTimeZone, zonedLocalToUtc } from "../server/lib/rulebook/time.js";
+import {
+  dateInQuote,
+  resolveTimeZone,
+  zonedLocalToUtc,
+} from "../server/lib/rulebook/time.js";
 
 export default defineAction({
   description:
@@ -106,6 +110,23 @@ export default defineAction({
       contentChanged = true;
     }
     if (args.done !== undefined) patch.done = args.done;
+
+    // An agent may not pair a quote with a date the quote does not state.
+    const finalLocal = patch.dueLocal !== undefined ? patch.dueLocal : fact.dueLocal;
+    const finalQuote = patch.quote !== undefined ? patch.quote : fact.quote;
+    if (
+      editor !== "person" &&
+      (patch.dueLocal !== undefined || patch.quote !== undefined) &&
+      finalLocal &&
+      finalQuote
+    ) {
+      const dated = dateInQuote(finalLocal, finalQuote);
+      if (!dated.ok)
+        fail(`${dated.reason} Quote the sentence that states this date.`, {
+          errorCode: "date_not_in_quote",
+          statusCode: 422,
+        });
+    }
 
     let status = fact.status;
     if (args.status !== undefined) status = args.status;

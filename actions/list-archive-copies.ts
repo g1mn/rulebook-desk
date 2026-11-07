@@ -21,7 +21,7 @@ export default defineAction({
   run: async ({ sourceId }) => {
     const { source } = await requireSource(sourceId, "viewer");
     const target = source.url.replace(/^https?:\/\//, "");
-    const query = `${CDX}?url=${encodeURIComponent(target)}&output=json&fl=timestamp,digest&filter=statuscode:200&collapse=digest&limit=200`;
+    const query = `${CDX}?url=${encodeURIComponent(target)}&output=json&fl=timestamp,digest&filter=statuscode:200&collapse=digest&limit=-60`; // negative limit = newest copies
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15_000);
     let rows: string[][] = [];

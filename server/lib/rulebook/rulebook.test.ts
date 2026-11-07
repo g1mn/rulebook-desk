@@ -7,7 +7,7 @@ import {
   normalizeForMatch,
   withoutCounterNoise,
 } from "./text.js";
-import { resolveTimeZone, zonedLocalToUtc } from "./time.js";
+import { dateInQuote, resolveTimeZone, zonedLocalToUtc } from "./time.js";
 
 describe("zonedLocalToUtc", () => {
   it("matches the Agent-Native rules' own UTC statement", () => {
@@ -75,5 +75,26 @@ describe("htmlToText", () => {
     const { title, text } = htmlToText(html);
     expect(title).toBe("Rules & FAQ");
     expect(text.split("\n\n")).toEqual(["Official Rules", "Deadline: Dec 4, 2026 @ 2:00pm PST", "One", "Two"]);
+  });
+});
+
+describe("dateInQuote", () => {
+  it("accepts quotes that state the date and time", () => {
+    expect(dateInQuote("2026-11-09T23:59", "Monday, November 9, 2026 at 11:59 PM PT : Final submission deadline.").ok).toBe(true);
+    expect(dateInQuote("2026-12-04T14:00", "Submission Period: October 30, 2026 (9:00 am Pacific Time) – December 4, 2026 (2:00 pm Pacific Time)").ok).toBe(true);
+    expect(dateInQuote("2026-12-04T14:00", "Deadline: Dec 4, 2026 @ 2:00pm PST").ok).toBe(true);
+    expect(dateInQuote("2026-12-01T00:00", "Credits must be redeemed by December 1, 2026.").ok).toBe(true);
+  });
+  it("rejects a misread date or hour", () => {
+    expect(dateInQuote("2026-11-19T23:59", "Monday, November 9, 2026 at 11:59 PM PT").ok).toBe(false);
+    expect(dateInQuote("2026-11-09T11:59", "Monday, November 9, 2026 at 11:59 PM PT").ok).toBe(false);
+    expect(dateInQuote("2026-11-09T23:59", "The recording must be viewable without a login.").ok).toBe(false);
+  });
+});
+
+describe("noise filter keeps date changes", () => {
+  it("a short deadline line that changes is a rule change", () => {
+    const d = withoutCounterNoise(diffParagraphs("Deadline: Dec 4, 2026", "Deadline: Dec 18, 2026"));
+    expect(d.added).toEqual(["Deadline: Dec 18, 2026"]);
   });
 });

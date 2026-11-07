@@ -81,3 +81,66 @@ export function resolveTimeZone(input: string): string | null {
   if (alias) return alias;
   return isValidTimeZone(trimmed) ? trimmed : null;
 }
+
+const MONTHS = [
+  ["january", "jan"],
+  ["february", "feb"],
+  ["march", "mar"],
+  ["april", "apr"],
+  ["may"],
+  ["june", "jun"],
+  ["july", "jul"],
+  ["august", "aug"],
+  ["september", "sept", "sep"],
+  ["october", "oct"],
+  ["november", "nov"],
+  ["december", "dec"],
+];
+
+/**
+ * Does the quote actually state this date (and the hour, when the quote has
+ * any clock time)? Guards against a verified quote paired with a misread date.
+ */
+export function dateInQuote(dueLocal: string, quote: string): { ok: boolean; reason?: string } {
+  const m = LOCAL_RE.exec(dueLocal.trim());
+  if (!m) return { ok: false, reason: "dueLocal is not YYYY-MM-DDTHH:mm" };
+  const [y, mo, d, h, mi] = m.slice(1, 6).map((v) => Number(v));
+  const q = quote
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\s+/g, " ");
+  const names = MONTHS[mo! - 1] ?? [];
+  const monthName = names.some((n) => new RegExp(`\\b${n}\\b\\.?`).test(q));
+  const day = new RegExp(`(^|[^\\d])0?${d}(st|nd|rd|th)?(?!\\d)`).test(q);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const numeric = [
+    `${y}-${pad(mo!)}-${pad(d!)}`,
+    `${y}.${pad(mo!)}.${pad(d!)}`,
+    `${y}/${pad(mo!)}/${pad(d!)}`,
+    `${mo}/${d}/`,
+    `${pad(mo!)}/${pad(d!)}/`,
+    `${d}/${mo}/`,
+    `${d}.${mo}.`,
+    `${mo}월 ${d}일`,
+    `${mo}월${d}일`,
+  ].some((pattern) => q.includes(pattern));
+  if (!numeric && !(monthName && day))
+    return { ok: false, reason: `The quote does not state ${dueLocal.slice(0, 10)}.` };
+  const hasClock = /\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(am|pm|a\.m\.|p\.m\.)|\bnoon\b|\bmidnight\b/.test(q);
+  if (!hasClock) return { ok: true };
+  const h12 = h! % 12 === 0 ? 12 : h! % 12;
+  const ampm = h! < 12 ? "a" : "p";
+  const clock = [
+    new RegExp(`\\b${h12}(:${pad(mi!)})?\\s*${ampm}\\.?m\\b`),
+    // 24-hour forms only when no am/pm follows ("11:59 PM" is not 11:59).
+    new RegExp(`\\b${pad(h!)}:${pad(mi!)}\\b(?!\\s*(am|pm|a\\.m|p\\.m))`),
+    new RegExp(`\\b${h}:${pad(mi!)}\\b(?!\\s*(am|pm|a\\.m|p\\.m))`),
+  ].some((re) => re.test(q));
+  const word =
+    (h === 12 && mi === 0 && /\bnoon\b/.test(q)) ||
+    (((h === 0 && mi === 0) || (h === 23 && mi === 59)) && /\bmidnight\b/.test(q));
+  return clock || word
+    ? { ok: true }
+    : { ok: false, reason: `The quote gives a time, but not ${dueLocal.slice(11, 16)}.` };
+}
