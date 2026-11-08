@@ -41,6 +41,7 @@ Turn contest, grant and program rule pages into checked deadlines and requiremen
 - Deadlines: send `dueLocal` "YYYY-MM-DDTHH:mm" as written plus `timeZone` (IANA or PT/ET/UTC/KST/AoE). Code computes `dueAt` (UTC ISO). Do no time math.
 - `check-sources` re-fetches pages; changed text stores a snapshot, records added/removed paragraphs, marks facts stale when their quote vanished, and emits `rulebook.source.changed`. `asOf` (Wayback "YYYYMMDD") loads an Internet Archive copy instead.
 - `navigation` adds `rulebookId` and `factId` (selected row). `view-screen` returns the open rulebook and selected fact.
+- Languages: en-US (source), ko-KR, ja-JP, zh-CN (`shared/locales.ts`). Screen text lives in `app/i18n/desk/<locale>.ts`; add a key to all four files (`app/i18n/i18n.test.ts` checks key parity, placeholders and that every `t("desk.…")` key exists). Dates go through `Intl` with the active locale. The header language menu and Settings › Preferences write the same `localization` user setting; the agent prompt gets a reply-language block from it (`server/lib/agent-language.ts`). Quotes are never translated.
 
 | Action | Purpose |
 |---|---|
