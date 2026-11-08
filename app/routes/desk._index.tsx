@@ -235,7 +235,10 @@ export default function DeskIndex() {
                   </div>
                 ) : (
                   <div className="text-sm text-muted-foreground">
-                    {b.deadlines.length ? "All listed deadlines have passed" : "No deadline extracted yet"}
+                    {b.deadlines.length ||
+                    b.counts.proposed + b.counts.approved + b.counts.stale + b.counts.unverified
+                      ? "No upcoming deadlines"
+                      : "No deadline extracted yet"}
                   </div>
                 )}
                 <div className="flex flex-wrap gap-1.5 text-[11px]">

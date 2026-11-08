@@ -26,8 +26,9 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  // Chips are ~150px wide; keep chips in one lane at least that far apart.
-  const gap = Math.min(60, (160 / Math.max(width, 200)) * 100);
+  // Chips are at most max-w-44 (176px) wide. Lanes remember the right edge of their last
+  // chip, using the same anchor (left, centre or right) the chip is drawn with.
+  const chip = Math.min(60, (184 / Math.max(width, 200)) * 100);
   const { start, end, ticks, placed, hidden } = useMemo(() => {
     const upcoming = items
       .filter((i) => new Date(i.dueAt).getTime() >= now - DAY)
@@ -45,17 +46,18 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
     let hidden = 0;
     for (const item of upcoming) {
       const x = ((new Date(item.dueAt).getTime() - startMs) / span) * 100;
+      const left = x < 12 ? x : x > 88 ? x - chip : x - chip / 2;
       let lane = 0;
-      while (lanes[lane] !== undefined && x - lanes[lane]! < gap) lane++;
+      while (lanes[lane] !== undefined && left < lanes[lane]!) lane++;
       if (lane > 3) {
         hidden++;
         continue;
       }
-      lanes[lane] = x;
+      lanes[lane] = left + chip;
       placed.push({ ...item, x, lane });
     }
     return { start: startMs, end: endMs, ticks, placed, hidden };
-  }, [items, now, gap]);
+  }, [items, now, chip]);
 
   const todayX = ((now - start) / (end - start)) * 100;
 
