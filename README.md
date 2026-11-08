@@ -6,10 +6,8 @@ Built with [Agent-Native](https://www.agent-native.com) for the Builder.io Agent
 
 ## Demo
 
-- **Video (public Clips recording):** <!-- CLIPS-URL: paste after the recording is public -->_added at submission_
-- **Screenshots:** <!-- SCREENSHOT: docs/desk-timeline.png — /desk with the deadline timeline -->
-  <!-- SCREENSHOT: docs/review-table.png — review table with the quoted sentence highlighted -->
-  <!-- SCREENSHOT: docs/stale-repair.png — Kiroween 2025 after replaying the Dec 12 archive copy: stale fact and repaired fact -->
+- **Video (Clips, 1:51):** https://clips.agent-native.com/share/amNUhOQKD3zO
+  The real app driven end to end in a browser, with captions: a new rules page extracted by the agent, a deadline approved beside its highlighted sentence, a made-up rule rejected, the sidebar agent answering "What's still left before I submit?", and the Dec 12, 2025 Internet Archive copy of the Kiroween rules turning an approved fact stale, then repaired by the on-change automation with no click.
 
 ## The problem
 
@@ -91,7 +89,7 @@ Rules ask entrants to identify pre-existing work. This is an individual entry.
 - **Template:** scaffolded on 2026-11-08 with `npx @agent-native/core@0.226.0 create --standalone --template chat` (the Agent-Native Chat starter: app shell, sidebar chat, auth, settings, UI components under `app/components/ui`, layout). Versions are pinned (`@agent-native/core`, `toolkit`, `agentkit` 0.226.0).
 - **Libraries:** Agent-Native core/toolkit/agentkit, React 19, React Router, Drizzle ORM, PGlite, Zod, TanStack Query, Tailwind, Radix/shadcn primitives (via the template), Tabler icons, Vitest.
 - **Third-party data:** public rules pages fetched at run time; archived copies from the Internet Archive Wayback Machine.
-- **Built during the event (all after 2026-10-27, in this repository's history):** everything specific to Rulebook Desk — the database schema and migration, all domain actions, quote and date verification, paragraph and word diff with the noise filter, time-zone conversion, Internet Archive history, the change event and the automations panel, the `/desk` screens (timeline, rulebook cards, review table, page viewer, change banner, edit/add dialogs, select-text-to-quote), navigation/selection state for the agent, the agent instructions, and the tests. Changes to template files are limited to the sidebar link, app name, home path, agent plugin prompt/tool list, sidebar suggestions, `view-screen`, navigation state and styles; the template's example actions were removed.
+- **Built during the event (all after 2026-10-27, in this repository's history):** everything specific to Rulebook Desk: the database schema and migration, all domain actions, quote and date verification, paragraph and word diff with the noise filter, time-zone conversion, Internet Archive history, the change event and the automations panel, the `/desk` screens (timeline, rulebook cards, review table, page viewer, change banner, edit/add dialogs, select-text-to-quote), navigation/selection state for the agent, the agent instructions, and the tests. Changes to template files are limited to the sidebar link, app name, home path, agent plugin prompt/tool list, sidebar suggestions, `view-screen`, navigation state and styles; the template's example actions were removed.
 - **Tools:** written with AI coding assistants (Claude Code, Antigravity), reviewed and tested by the author.
 
 ## Limits
