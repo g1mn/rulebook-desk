@@ -11,8 +11,8 @@ import {
 } from "../server/lib/rulebook/service.js";
 import {
   dateInQuote,
+  dueToUtc,
   resolveTimeZone,
-  zonedLocalToUtc,
 } from "../server/lib/rulebook/time.js";
 
 export default defineAction({
@@ -30,10 +30,10 @@ export default defineAction({
       .describe("Replacement verbatim quote; re-checked against the fetched pages"),
     dueLocal: z
       .string()
-      .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+      .regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/)
       .nullable()
       .optional()
-      .describe('Wall-clock "YYYY-MM-DDTHH:mm" in timeZone; null clears the date'),
+      .describe('Wall-clock "YYYY-MM-DDTHH:mm" in timeZone, or "YYYY-MM-DD" when the page gives no time; null clears the date'),
     timeZone: z
       .string()
       .optional()
@@ -111,7 +111,7 @@ export default defineAction({
         if (local !== fact.dueLocal || zone !== fact.dueTimeZone) {
           patch.dueLocal = local;
           patch.dueTimeZone = zone;
-          patch.dueAt = zonedLocalToUtc(local, zone);
+          patch.dueAt = dueToUtc(local, zone);
           contentChanged = true;
         }
       }

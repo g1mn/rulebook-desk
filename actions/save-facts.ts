@@ -20,8 +20,8 @@ import {
 import { normalizeForMatch } from "../server/lib/rulebook/text.js";
 import {
   dateInQuote,
+  dueToUtc,
   resolveTimeZone,
-  zonedLocalToUtc,
 } from "../server/lib/rulebook/time.js";
 
 const factIn = z.object({
@@ -49,10 +49,10 @@ const factIn = z.object({
     .describe("Source the quote comes from; omit to search every page of the rulebook"),
   dueLocal: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+    .regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/)
     .optional()
     .describe(
-      'For deadlines: wall-clock time as written on the page, "YYYY-MM-DDTHH:mm" (e.g. "2026-11-09T23:59" for 11:59 PM)',
+      'For dated facts: as written on the page, "YYYY-MM-DDTHH:mm" (e.g. "2026-11-09T23:59" for 11:59 PM), or just "YYYY-MM-DD" when the sentence gives no time — never invent a time',
     ),
   timeZone: z
     .string()
@@ -127,7 +127,7 @@ export default defineAction({
           rejected.push({ index, label: f.label, reason: `Unknown time zone "${f.timeZone}". Use an IANA name.` });
           continue;
         }
-        dueAt = zonedLocalToUtc(f.dueLocal, timeZone);
+        dueAt = dueToUtc(f.dueLocal, timeZone);
         if (f.quote?.trim()) {
           const dated = dateInQuote(f.dueLocal, f.quote);
           if (!dated.ok) {

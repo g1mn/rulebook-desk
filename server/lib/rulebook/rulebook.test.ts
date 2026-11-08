@@ -83,12 +83,15 @@ describe("dateInQuote", () => {
     expect(dateInQuote("2026-11-09T23:59", "Monday, November 9, 2026 at 11:59 PM PT : Final submission deadline.").ok).toBe(true);
     expect(dateInQuote("2026-12-04T14:00", "Submission Period: October 30, 2026 (9:00 am Pacific Time) – December 4, 2026 (2:00 pm Pacific Time)").ok).toBe(true);
     expect(dateInQuote("2026-12-04T14:00", "Deadline: Dec 4, 2026 @ 2:00pm PST").ok).toBe(true);
-    expect(dateInQuote("2026-12-01T00:00", "Credits must be redeemed by December 1, 2026.").ok).toBe(true);
+    expect(dateInQuote("2026-12-01", "Credits must be redeemed by December 1, 2026.").ok).toBe(true);
   });
   it("rejects a misread date or hour", () => {
     expect(dateInQuote("2026-11-19T23:59", "Monday, November 9, 2026 at 11:59 PM PT").ok).toBe(false);
     expect(dateInQuote("2026-11-09T11:59", "Monday, November 9, 2026 at 11:59 PM PT").ok).toBe(false);
     expect(dateInQuote("2026-11-09T23:59", "The recording must be viewable without a login.").ok).toBe(false);
+    // No time in the sentence: an invented midnight is rejected, the date alone is fine.
+    expect(dateInQuote("2026-12-11T00:00", "Winners announced on or around December 11, 2026.").ok).toBe(false);
+    expect(dateInQuote("2026-12-11", "Winners announced on or around December 11, 2026.").ok).toBe(true);
   });
 });
 

@@ -118,8 +118,18 @@ const MONTHS = [
  * Does the quote actually state this date (and the hour, when the quote has
  * any clock time)? Guards against a verified quote paired with a misread date.
  */
+export function isDateOnly(dueLocal: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(dueLocal.trim());
+}
+
+/** UTC instant for a due value; a date with no time counts from the start of that day. */
+export function dueToUtc(dueLocal: string, timeZone: string): string {
+  return zonedLocalToUtc(isDateOnly(dueLocal) ? `${dueLocal.trim()}T00:00` : dueLocal, timeZone);
+}
+
 export function dateInQuote(dueLocal: string, quote: string): { ok: boolean; reason?: string } {
-  const m = LOCAL_RE.exec(dueLocal.trim());
+  const dateOnly = isDateOnly(dueLocal);
+  const m = LOCAL_RE.exec(dateOnly ? `${dueLocal.trim()}T00:00` : dueLocal.trim());
   if (!m) return { ok: false, reason: "dueLocal is not YYYY-MM-DDTHH:mm" };
   const [y, mo, d, h, mi] = m.slice(1, 6).map((v) => Number(v));
   const q = quote
@@ -145,7 +155,12 @@ export function dateInQuote(dueLocal: string, quote: string): { ok: boolean; rea
   if (!numeric && !(monthName && day))
     return { ok: false, reason: `The quote does not state ${dueLocal.slice(0, 10)}.` };
   const hasClock = /\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(am|pm|a\.m\.|p\.m\.)|\bnoon\b|\bmidnight\b/.test(q);
-  if (!hasClock) return { ok: true };
+  if (dateOnly) return { ok: true };
+  if (!hasClock)
+    return {
+      ok: false,
+      reason: `The quote states no time. Send dueLocal as the date only ("${dueLocal.slice(0, 10)}").`,
+    };
   const h12 = h! % 12 === 0 ? 12 : h! % 12;
   const ampm = h! < 12 ? "a" : "p";
   const clock = [
