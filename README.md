@@ -4,6 +4,13 @@
 
 Built with [Agent-Native](https://www.agent-native.com) for the Builder.io Agent-Native Hackathon (Oct 27 – Nov 9, 2026).
 
+## Demo
+
+- **Video (public Clips recording):** <!-- CLIPS-URL: paste after the recording is public -->_added at submission_
+- **Screenshots:** <!-- SCREENSHOT: docs/desk-timeline.png — /desk with the deadline timeline -->
+  <!-- SCREENSHOT: docs/review-table.png — review table with the quoted sentence highlighted -->
+  <!-- SCREENSHOT: docs/stale-repair.png — Kiroween 2025 after replaying the Dec 12 archive copy: stale fact and repaired fact -->
+
 ## The problem
 
 Rules pages are long, they change, and the dates are written in someone else's time zone. Missing one line ("the recording must be viewable without a login") costs an entry, and published dates do move after you read them (below: a judging period that moved by two weeks). An LLM summary does not fix this: it can paraphrase a rule that does not exist, and it cannot tell you when the page changed after you read it.
@@ -12,11 +19,11 @@ Rules pages are long, they change, and the dates are written in someone else's t
 
 | | |
 |---|---|
-| **Quote-locked facts** | The agent reads the page and proposes each deadline, submission item, requirement, eligibility rule, judging criterion and prize. A fact is saved only if its quote is found on the fetched page (after normalizing case, whitespace, curly quotes and dashes), and a deadline only if that sentence states the same date and hour. Invented or misdated quotes are rejected by code, not by the model. Facts you add by hand may be unquoted, but they cannot be approved until they carry a verified quote. |
+| **Quote-locked facts** | The agent reads the page and proposes each deadline, submission item, requirement, eligibility rule, judging criterion and prize. A fact is saved only if its quote is found on the fetched page (after normalizing case, whitespace, curly quotes and dashes), and a deadline only if that sentence states the same date and hour (and the same year when the sentence gives one; a year the sentence does not give must fall within the page's capture window). Invented or misdated quotes are rejected by code, not by the model. Facts you add by hand may be unquoted, but they cannot be approved until they carry a verified quote. |
 | **Human approval** | New facts start as *proposed*. You approve them in the table next to the page text, with the quoted sentence highlighted. Only facts with a verified quote can be approved. If the agent asks to approve, the app asks you to confirm in chat. If the agent edits a fact you approved, it goes back to *proposed*. |
 | **Time math in code** | The agent passes the time exactly as written ("2026-11-09T23:59", "PT"). The app converts it to UTC with `Intl`, then shows your local time, the page's time and UTC side by side. |
 | **Drift watch** | "Check pages now" (and an optional daily automation) re-fetches every page, stores a snapshot when the text changed, shows the edit word by word, and marks a fact *stale* when its quoted sentence is gone, with "page now says …" beside it. Counter churn ("Participants (547)" → "(2421)") is ignored; dates, amounts and team sizes never are. A framework event (`rulebook.source.changed`) lets an automation ask the agent to repair stale facts. If the sentence comes back, the fact returns to *proposed*. |
-| **Internet Archive history** | Start tracking from a Wayback Machine copy (the version you read when you entered), then load a newer copy to replay how the rules changed, or an older one to see what changed since then without touching your current facts. |
+| **Internet Archive history** | Start tracking from a Wayback Machine copy (the version you read when you entered; the daily check leaves such pinned pages alone), then load a newer copy to replay how the rules changed, or an older one to see what changed since then without touching your current facts. |
 | **One timeline** | Every tracked deadline across contests on one axis, with countdowns. Requirements become a checklist once approved. |
 
 ## Real runs on real pages
