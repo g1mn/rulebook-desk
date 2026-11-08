@@ -53,20 +53,30 @@ export function AutomationsPanel() {
     onError: (err) => toast.error(actionErrorMessage(err) ?? "Could not start the check."),
   });
 
-  function toggle(kind: "daily" | "repair", on: boolean) {
+  async function toggle(kind: "daily" | "repair", on: boolean) {
     const existing = kind === "daily" ? daily : repair;
-    if (existing) {
-      manage.mutate({ operation: "update", resourceId: existing.resourceId, enabled: on } as never);
+    if (existing && !on) {
+      manage.mutate({ operation: "update", resourceId: existing.resourceId, enabled: false } as never);
       return;
     }
-    const def = DESK_AUTOMATIONS[kind];
-    manage.mutate({
-      operation: "create",
-      scope: "personal",
-      enabled: true,
-      ...def,
-      ...(kind === "daily" ? { timezone: userTimeZone() } : {}),
-    } as never);
+    // Switching on always installs the definition above, fresh. One set up or
+    // edited from outside the app (CLI, MCP) is "outside-managed" by the
+    // framework and asks a person to approve every write in its background
+    // runs, so it could never finish on its own; a reinstall from here can.
+    try {
+      if (existing)
+        await manage.mutateAsync({ operation: "delete", resourceId: existing.resourceId } as never);
+      const def = DESK_AUTOMATIONS[kind];
+      await manage.mutateAsync({
+        operation: "create",
+        scope: "personal",
+        enabled: true,
+        ...def,
+        ...(kind === "daily" ? { timezone: userTimeZone() } : {}),
+      } as never);
+    } catch {
+      // onError already showed the toast.
+    }
   }
 
   const busy = manage.isPending || isPending;
@@ -80,7 +90,7 @@ export function AutomationsPanel() {
         <Switch
           checked={Boolean(daily?.enabled)}
           disabled={busy}
-          onCheckedChange={(on) => toggle("daily", on)}
+          onCheckedChange={(on) => void toggle("daily", on)}
           aria-label="Daily rules check"
         />
         <IconClockHour9 className="size-3.5 text-muted-foreground" />
@@ -105,7 +115,7 @@ export function AutomationsPanel() {
         <Switch
           checked={Boolean(repair?.enabled)}
           disabled={busy}
-          onCheckedChange={(on) => toggle("repair", on)}
+          onCheckedChange={(on) => void toggle("repair", on)}
           aria-label="Auto-repair stale facts"
         />
         <IconBolt className="size-3.5 text-muted-foreground" />
