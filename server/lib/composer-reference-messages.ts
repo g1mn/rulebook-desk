@@ -8,16 +8,9 @@ import { getUserSetting } from "@agent-native/core/settings";
 
 const catalogs = {
   "en-US": () => import("../../app/i18n/en-US.js"),
-  "ar-SA": () => import("../../app/i18n/ar-SA.js"),
-  "de-DE": () => import("../../app/i18n/de-DE.js"),
-  "es-ES": () => import("../../app/i18n/es-ES.js"),
-  "fr-FR": () => import("../../app/i18n/fr-FR.js"),
-  "hi-IN": () => import("../../app/i18n/hi-IN.js"),
   "ja-JP": () => import("../../app/i18n/ja-JP.js"),
   "ko-KR": () => import("../../app/i18n/ko-KR.js"),
-  "pt-BR": () => import("../../app/i18n/pt-BR.js"),
   "zh-CN": () => import("../../app/i18n/zh-CN.js"),
-  "zh-TW": () => import("../../app/i18n/zh-TW.js"),
 };
 
 export async function composerReferenceMessages() {
@@ -29,6 +22,6 @@ export async function composerReferenceMessages() {
   const load =
     locale && locale in catalogs
       ? catalogs[locale as keyof typeof catalogs]
-      : catalogs[DEFAULT_LOCALE];
+      : catalogs[DEFAULT_LOCALE as keyof typeof catalogs];
   return (await load()).default.composerSources;
 }

@@ -1,4 +1,7 @@
+import desk from "./desk/ja-JP";
+
 const messages = {
+  desk,
   composerSources: {
     reference: "会話を参照…",
     group: "会話",

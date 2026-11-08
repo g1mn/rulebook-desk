@@ -1,4 +1,7 @@
+import desk from "./desk/zh-CN";
+
 const messages = {
+  desk,
   composerSources: {
     reference: "引用对话…",
     group: "对话",
@@ -16,9 +19,9 @@ const messages = {
     workspaceDescription: "管理团队成员、组织访问权限和共享工作区偏好。",
     openTeamSettings: "打开团队设置",
     openResourceSettings: "打开资源设置",
-    agentTitle: "管理代理",
-    agentDescription: "管理代理的模型、API 密钥、自动化、语音和其他控制项。",
-    openAgentSettings: "管理代理",
+    agentTitle: "管理智能体",
+    agentDescription: "管理智能体的模型、API 密钥、自动化、语音和其他控制项。",
+    openAgentSettings: "管理智能体",
   },
   chat: {
     archiveChat: "归档聊天",
@@ -26,7 +29,7 @@ const messages = {
     chats: "聊天",
     composerPlaceholder: "有问题，尽管问",
     emptyState: "问我任何问题",
-    heroDescription: "让代理检查、解释或更改此应用。",
+    heroDescription: "让智能体检查、解释或更改此应用。",
     heroTitle: "我能帮你什么？",
     inspectEmptyState: "询问我有关此应用的任何问题",
     inspectSuggestionAction: "显示可用操作",
@@ -78,7 +81,7 @@ const messages = {
   },
   pages: {
     databaseTitle: "数据库",
-    observabilityPageTitle: "代理可观测性",
+    observabilityPageTitle: "智能体可观测性",
     teamTitle: "团队",
     teamCreateOrgDescription: "创建组织以邀请队友并共享此应用。",
   },

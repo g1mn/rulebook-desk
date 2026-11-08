@@ -1,4 +1,7 @@
+import desk from "./desk/ko-KR";
+
 const messages = {
+  desk,
   composerSources: {
     reference: "대화 참조…",
     group: "대화",

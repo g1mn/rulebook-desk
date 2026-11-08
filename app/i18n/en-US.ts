@@ -1,4 +1,7 @@
+import desk from "./desk/en-US";
+
 const messages = {
+  desk,
   composerSources: {
     reference: "Reference a conversation…",
     group: "Conversations",
