@@ -15,7 +15,7 @@ import { splitParagraphs } from "../server/lib/rulebook/text.js";
 
 export default defineAction({
   description:
-    "Get one rulebook with its sources (no page text), every fact (deadlines and requirements with quote verification and review status), and the 10 most recent detected changes. Use read-source for page text.",
+    "Get one rulebook with its sources (no page text; archivedAt is set when a source shows an Internet Archive copy instead of today's page), every fact (deadlines and requirements with quote verification and review status), and the 10 most recent detected changes. Use read-source for page text.",
   schema: z.object({
     id: z.string().describe("Rulebook id from list-rulebooks"),
   }),
@@ -52,7 +52,11 @@ export default defineAction({
       .filter((x): x is string => Boolean(x));
     const snaps = snapIds.length
       ? await db
-          .select({ id: schema.snapshots.id, text: schema.snapshots.text })
+          .select({
+            id: schema.snapshots.id,
+            text: schema.snapshots.text,
+            archivedAt: schema.snapshots.archivedAt,
+          })
           .from(schema.snapshots)
           .where(inArray(schema.snapshots.id, snapIds))
           .limit(20)
@@ -93,6 +97,7 @@ export default defineAction({
         paragraphs: splitParagraphs(
           snaps.find((x) => x.id === s.currentSnapshotId)?.text ?? "",
         ).length,
+        archivedAt: snaps.find((x) => x.id === s.currentSnapshotId)?.archivedAt ?? null,
       })),
       facts: factRows.map(toFactOut),
       changes: changeRows.map((c) => ({

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { hostOf, relativeTime } from "@/lib/rulebook";
+import { formatWayback, hostOf, relativeTime } from "@/lib/rulebook";
 import { cn } from "@/lib/utils";
 
 function normalize(s: string) {
@@ -52,6 +52,7 @@ export interface SourcePaneSource {
   lastCheckedAt: string | null;
   lastStatus: string;
   lastError: string | null;
+  archivedAt?: string | null;
 }
 
 export function SourcePane({
@@ -103,7 +104,9 @@ export function SourcePane({
           {source.title || hostOf(source.url)}
         </span>
         <span className="shrink-0 text-muted-foreground">
-          fetched {relativeTime(source.lastCheckedAt)}
+          {source.archivedAt
+            ? `Internet Archive copy · ${formatWayback(source.archivedAt)}`
+            : `fetched ${relativeTime(source.lastCheckedAt)}`}
         </span>
         <a
           href={source.url}

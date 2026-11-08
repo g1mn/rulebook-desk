@@ -340,7 +340,9 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
                   )}
                 />
                 <span className="truncate">{hostOf(s.url)}{new URL(s.url).pathname.replace(/\/$/, "")}</span>
-                <span className="text-muted-foreground">· {relativeTime(s.lastCheckedAt)}</span>
+                <span className="text-muted-foreground">
+                  · {s.archivedAt ? `archive ${formatWayback(s.archivedAt)}` : relativeTime(s.lastCheckedAt)}
+                </span>
               </button>
             ))}
             {addingPage ? (

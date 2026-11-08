@@ -39,6 +39,8 @@ export const sourceOut = z.object({
   lastStatus: z.enum(["pending", "ok", "error"]),
   lastError: z.string().nullable(),
   paragraphs: z.number(),
+  /** Wayback timestamp when the current text is an Internet Archive copy, else null (live page). */
+  archivedAt: z.string().nullable(),
 });
 
 export const changeOut = z.object({
