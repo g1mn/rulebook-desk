@@ -1,3 +1,4 @@
+import { useDeskI18n } from "@/hooks/use-desk-i18n";
 import { pairChanges, wordDiff, type DiffPart } from "@/lib/word-diff";
 import { cn } from "@/lib/utils";
 
@@ -29,13 +30,14 @@ export function InlineDiff({ parts, className }: { parts: DiffPart[]; className?
 
 /** Changed paragraphs: edited ones as one line with word-level marks. */
 export function ChangeDiff({ removed, added }: { removed: string[]; added: string[] }) {
+  const { t } = useDeskI18n();
   const { pairs, lonelyRemoved, lonelyAdded } = pairChanges(removed, added);
   return (
     <div className="desk-quote mt-3 max-h-72 space-y-2 overflow-y-auto rounded-lg bg-background/70 p-3 text-[13px] leading-snug">
       {pairs.map((p, i) => (
         <p key={"p" + i} className="text-foreground/85">
           <span className="mr-1.5 font-sans text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            edited
+            {t("desk.diff.edited")}
           </span>
           <InlineDiff parts={wordDiff(p.before, p.after)} />
         </p>

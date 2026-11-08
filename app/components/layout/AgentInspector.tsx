@@ -39,12 +39,12 @@ export function AgentInspector({
       browserTabId={TAB_ID}
       openOnChatRunning={chatHomeHandoffActive}
       onFullscreenRequest={openAskAgentFullscreen}
-      emptyStateText="Ask about the rules on screen. I quote the page for every fact."
+      emptyStateText={t("desk.agent.emptyState")}
       agentPageHref="/settings/agent"
       suggestions={[
-        "What's still left before I submit?",
-        "Why is the selected fact stale?",
-        "Check every tracked page for changes",
+        t("desk.agent.suggestLeft"),
+        t("desk.agent.suggestStale"),
+        t("desk.agent.suggestCheck"),
       ]}
     >
       {children}

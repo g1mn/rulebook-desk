@@ -125,7 +125,7 @@ function HomeNavLink({ collapsed }: { collapsed: boolean }) {
     <Link
       to="/desk"
       aria-current={active ? "page" : undefined}
-      aria-label={collapsed ? "Rulebooks" : undefined}
+      aria-label={collapsed ? t("desk.nav.rulebooks") : undefined}
       className={cn(
         "flex items-center text-sidebar-accent-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
         active && "bg-sidebar-accent",
@@ -135,7 +135,9 @@ function HomeNavLink({ collapsed }: { collapsed: boolean }) {
       )}
     >
       <IconBook2 className="size-4 shrink-0" strokeWidth={1.8} />
-      <span className={collapsed ? "sr-only" : "truncate"}>Rulebooks</span>
+      <span className={collapsed ? "sr-only" : "truncate"}>
+        {t("desk.nav.rulebooks")}
+      </span>
     </Link>
   );
 
@@ -143,7 +145,7 @@ function HomeNavLink({ collapsed }: { collapsed: boolean }) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>{link}</TooltipTrigger>
-        <TooltipContent side="right">Rulebooks</TooltipContent>
+        <TooltipContent side="right">{t("desk.nav.rulebooks")}</TooltipContent>
       </Tooltip>
     );
   }

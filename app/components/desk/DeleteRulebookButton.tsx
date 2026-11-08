@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
+import { useDeskI18n } from "@/hooks/use-desk-i18n";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,14 +17,15 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export function DeleteRulebookButton({ id, name }: { id: string; name: string }) {
+  const { t } = useDeskI18n();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const remove = useActionMutation("delete-rulebook", {
     onSuccess: (result) => {
-      toast.success(result.message);
+      toast.success(t("desk.delete.deleted", { name: result.name }));
       navigate("/desk");
     },
-    onError: (err) => toast.error(actionErrorMessage(err) ?? "Could not delete the rulebook."),
+    onError: (err) => toast.error(actionErrorMessage(err) ?? t("desk.delete.failed")),
   });
   return (
     <>
@@ -31,23 +33,23 @@ export function DeleteRulebookButton({ id, name }: { id: string; name: string })
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-        aria-label="Delete rulebook"
-        title="Delete rulebook"
+        aria-label={t("desk.delete.label")}
+        title={t("desk.delete.label")}
       >
         <IconTrash className="size-4" />
       </button>
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete “{name}”?</AlertDialogTitle>
+            <AlertDialogTitle>{t("desk.delete.title", { name })}</AlertDialogTitle>
             <AlertDialogDescription>
-              Its tracked pages, snapshots, facts and change history are removed. This cannot be undone.
+              {t("desk.delete.description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogCancel>{t("desk.delete.keep")}</AlertDialogCancel>
             <AlertDialogAction disabled={remove.isPending} onClick={() => remove.mutate({ id })}>
-              {remove.isPending ? "Deleting…" : "Delete"}
+              {remove.isPending ? t("desk.delete.deleting") : t("desk.delete.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

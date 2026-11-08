@@ -25,12 +25,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { countdown, formatInZone, relativeTime, userTimeZone } from "@/lib/rulebook";
+import { useDeskI18n } from "@/hooks/use-desk-i18n";
+import {
+  checkSummary,
+  countdown,
+  formatInZone,
+  relativeTime,
+  userTimeZone,
+} from "@/lib/rulebook";
 import { cn } from "@/lib/utils";
-
-function extractPrompt(name: string, id: string) {
-  return `Extract the rules for "${name}" (rulebook ${id}). Read every source with read-source, then save every deadline, submission item, requirement, eligibility rule, judging criterion and prize with save-facts. Copy each quote verbatim and give deadlines as dueLocal + timeZone exactly as the page states them.`;
-}
 
 export default function DeskIndex() {
   const navigate = useNavigate();
@@ -40,11 +43,18 @@ export default function DeskIndex() {
   const [asOf, setAsOf] = useState("");
   const [showArchive, setShowArchive] = useState(false);
   const tz = userTimeZone();
+  const { t, locale } = useDeskI18n();
   useTick();
 
   const create = useActionMutation("create-rulebook", {
     onSuccess: (result) => {
-      toast.success(result.message);
+      toast.success(
+        t("desk.index.created", {
+          name: result.name,
+          ok: result.sources.filter((s) => s.status !== "error").length,
+          count: result.sources.length,
+        }),
+      );
       setName("");
       setUrls("");
       setAsOf("");
@@ -52,7 +62,7 @@ export default function DeskIndex() {
       // A new rulebook gets its own chat, whatever thread (an automation run,
       // an older extraction) the sidebar happens to show.
       sendToAgentChat({
-        message: extractPrompt(result.name, result.id),
+        message: t("desk.index.extractPrompt", { name: result.name, id: result.id }),
         submit: true,
         openSidebar: true,
         newTab: true,
@@ -60,11 +70,11 @@ export default function DeskIndex() {
       });
     },
     onError: (error) =>
-      toast.error(actionErrorMessage(error) ?? "Could not start tracking."),
+      toast.error(actionErrorMessage(error) ?? t("desk.index.createFailed")),
   });
   const recheck = useActionMutation("check-sources", {
-    onSuccess: (result) => toast.success(result.message),
-    onError: (error) => toast.error(actionErrorMessage(error) ?? "Check failed."),
+    onSuccess: (result) => toast.success(checkSummary(result, undefined, t, locale)),
+    onError: (error) => toast.error(actionErrorMessage(error) ?? t("desk.check.failed")),
   });
 
   function submit(event: React.FormEvent) {
@@ -75,7 +85,7 @@ export default function DeskIndex() {
       .filter(Boolean)
       .slice(0, 5);
     if (!name.trim() || !list.length) {
-      toast.error("Add a name and at least one rules URL.");
+      toast.error(t("desk.index.needNameAndUrl"));
       return;
     }
     const ts = asOf.replace(/-/g, "");
@@ -104,17 +114,17 @@ export default function DeskIndex() {
         className="grid gap-3 rounded-xl border border-border bg-card p-4 lg:grid-cols-[minmax(12rem,0.8fr)_minmax(16rem,1.6fr)_auto] lg:items-end"
       >
         <div className="space-y-1.5">
-          <Label htmlFor="rb-name">Contest or program</Label>
+          <Label htmlFor="rb-name">{t("desk.index.nameLabel")}</Label>
           <Input
             id="rb-name"
-            placeholder="Agent-Native Hackathon"
+            placeholder={t("desk.index.namePlaceholder")}
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={120}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="rb-urls">Rules pages (one URL per line, up to 5)</Label>
+          <Label htmlFor="rb-urls">{t("desk.index.urlsLabel")}</Label>
           <Textarea
             id="rb-urls"
             rows={1}
@@ -131,7 +141,7 @@ export default function DeskIndex() {
             ) : (
               <IconPlus className="size-4" />
             )}
-            {create.isPending ? "Fetching pages…" : "Track & extract"}
+            {create.isPending ? t("desk.index.submitting") : t("desk.index.submit")}
           </Button>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground lg:col-span-3">
@@ -141,11 +151,11 @@ export default function DeskIndex() {
             onClick={() => setShowArchive((v) => !v)}
           >
             <IconHistory className="size-3.5" />
-            {showArchive ? "Use today's pages" : "Start from an Internet Archive copy"}
+            {showArchive ? t("desk.index.useToday") : t("desk.index.useArchive")}
           </button>
           {showArchive ? (
             <label className="inline-flex items-center gap-2">
-              <span>Archived on</span>
+              <span>{t("desk.index.archivedOn")}</span>
               <Input
                 type="date"
                 value={asOf}
@@ -155,7 +165,7 @@ export default function DeskIndex() {
             </label>
           ) : null}
           <span className="ml-auto">
-            The agent reads the pages and proposes facts with exact quotes. You approve.
+            {t("desk.index.hint")}
           </span>
         </div>
       </form>
@@ -170,7 +180,7 @@ export default function DeskIndex() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium text-muted-foreground">
-          Tracked rulebooks
+          {t("desk.index.tracked")}
         </h2>
         {books.length ? (
           <Button
@@ -181,7 +191,7 @@ export default function DeskIndex() {
             onClick={() => recheck.mutate({})}
           >
             <IconRefresh className={cn("size-4", recheck.isPending && "animate-spin")} />
-            Check all pages now
+            {t("desk.index.checkAll")}
           </Button>
         ) : null}
       </div>
@@ -194,14 +204,13 @@ export default function DeskIndex() {
         </div>
       ) : books.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          Paste a contest, grant or program rules URL above. The agent pulls out every
-          deadline and requirement with the exact sentence it came from.
+          {t("desk.index.empty")}
         </p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {books.map((b) => {
             const next = b.nextDeadline;
-            const c = next ? countdown(next.dueAt) : null;
+            const c = next ? countdown(next.dueAt, t) : null;
             const pct = b.requirementsTotal
               ? Math.round((b.requirementsDone / b.requirementsTotal) * 100)
               : 0;
@@ -230,35 +239,35 @@ export default function DeskIndex() {
                       {c.text}
                     </div>
                     <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {next.label} · {formatInZone(next.dueAt, tz)}
+                      {next.label} · {formatInZone(next.dueAt, tz, locale)}
                     </div>
                   </div>
                 ) : (
                   <div className="text-sm text-muted-foreground">
                     {b.deadlines.length ||
                     b.counts.proposed + b.counts.approved + b.counts.stale + b.counts.unverified
-                      ? "No upcoming deadlines"
-                      : "No deadline extracted yet"}
+                      ? t("desk.index.noUpcoming")
+                      : t("desk.index.noDeadlineYet")}
                   </div>
                 )}
                 <div className="flex flex-wrap gap-1.5 text-[11px]">
                   {b.counts.stale ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-[var(--desk-stale-bg)] px-2 py-0.5 font-medium text-[var(--desk-stale)]">
                       <IconAlertTriangle className="size-3" />
-                      {b.counts.stale} stale
+                      {t("desk.index.staleCount", { n: b.counts.stale })}
                     </span>
                   ) : null}
                   {b.counts.proposed ? (
                     <span className="rounded-full bg-[var(--desk-accent-bg)] px-2 py-0.5 font-medium">
-                      {b.counts.proposed} to review
+                      {t("desk.index.toReview", { n: b.counts.proposed })}
                     </span>
                   ) : null}
                   <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
-                    {b.counts.approved} approved
+                    {t("desk.index.approvedCount", { n: b.counts.approved })}
                   </span>
                   {b.sourceErrors ? (
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[var(--desk-stale)]">
-                      {b.sourceErrors} page error
+                      {t("desk.index.pageErrors", { n: b.sourceErrors })}
                     </span>
                   ) : null}
                 </div>
@@ -273,7 +282,12 @@ export default function DeskIndex() {
                   <span className="tabular-nums">
                     {b.requirementsDone}/{b.requirementsTotal}
                   </span>
-                  <span>· checked {relativeTime(b.lastCheckedAt)}</span>
+                  <span>
+                    ·{" "}
+                    {b.lastCheckedAt
+                      ? t("desk.index.checkedAgo", { when: relativeTime(b.lastCheckedAt, t) })
+                      : t("desk.index.checkedNever")}
+                  </span>
                 </div>
               </Link>
             );

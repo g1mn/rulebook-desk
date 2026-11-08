@@ -7,7 +7,8 @@ import { IconBolt, IconClockHour9, IconPlayerPlay } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 import { Switch } from "@/components/ui/switch";
-import { relativeTime, userTimeZone } from "@/lib/rulebook";
+import { useDeskI18n } from "@/hooks/use-desk-i18n";
+import { relativeTime, runStatusLabel, userTimeZone, type Translate } from "@/lib/rulebook";
 
 /**
  * The two automations Rulebook Desk ships with. They are created through the
@@ -39,18 +40,26 @@ type Automation = {
   scheduleDescription?: string | null;
 };
 
+function lastRunText(a: Automation, t: Translate): string {
+  const when = relativeTime(a.lastRun, t);
+  return a.lastStatus
+    ? t("desk.automations.lastRun", { when, status: runStatusLabel(a.lastStatus, t) })
+    : t("desk.automations.lastRunNoStatus", { when });
+}
+
 export function AutomationsPanel() {
+  const { t } = useDeskI18n();
   const { data, isPending } = useActionQuery("list-automations", {});
   const list = (Array.isArray(data) ? data : []) as Automation[];
   const daily = list.find((a) => a.name === DESK_AUTOMATIONS.daily.name);
   const repair = list.find((a) => a.name === DESK_AUTOMATIONS.repair.name);
 
   const manage = useActionMutation("manage-automation", {
-    onError: (err) => toast.error(actionErrorMessage(err) ?? "Could not change the automation."),
+    onError: (err) => toast.error(actionErrorMessage(err) ?? t("desk.automations.changeFailed")),
   });
   const runNow = useActionMutation("run-automation-now", {
-    onSuccess: () => toast.success("Daily check started. Results land in its run log."),
-    onError: (err) => toast.error(actionErrorMessage(err) ?? "Could not start the check."),
+    onSuccess: () => toast.success(t("desk.automations.started")),
+    onError: (err) => toast.error(actionErrorMessage(err) ?? t("desk.automations.startFailed")),
   });
 
   async function toggle(kind: "daily" | "repair", on: boolean) {
@@ -82,23 +91,21 @@ export function AutomationsPanel() {
   const busy = manage.isPending || isPending;
   return (
     <section
-      aria-label="Automations"
+      aria-label={t("desk.automations.title")}
       className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs"
     >
-      <span className="font-medium text-muted-foreground">Automations</span>
+      <span className="font-medium text-muted-foreground">{t("desk.automations.title")}</span>
       <label className="inline-flex items-center gap-2">
         <Switch
           checked={Boolean(daily?.enabled)}
           disabled={busy}
           onCheckedChange={(on) => void toggle("daily", on)}
-          aria-label="Daily rules check"
+          aria-label={t("desk.automations.dailyLabel")}
         />
         <IconClockHour9 className="size-3.5 text-muted-foreground" />
-        <span>Re-check every page daily at 9:00</span>
+        <span>{t("desk.automations.daily")}</span>
         {daily?.lastRun ? (
-          <span className="text-muted-foreground">
-            · last {relativeTime(daily.lastRun)} ({daily.lastStatus ?? "—"})
-          </span>
+          <span className="text-muted-foreground">· {lastRunText(daily, t)}</span>
         ) : null}
         {daily ? (
           <button
@@ -107,7 +114,7 @@ export function AutomationsPanel() {
             disabled={runNow.isPending}
             onClick={() => runNow.mutate({ resourceId: daily.resourceId } as never)}
           >
-            <IconPlayerPlay className="size-3" /> Run now
+            <IconPlayerPlay className="size-3" /> {t("desk.automations.runNow")}
           </button>
         ) : null}
       </label>
@@ -116,14 +123,12 @@ export function AutomationsPanel() {
           checked={Boolean(repair?.enabled)}
           disabled={busy}
           onCheckedChange={(on) => void toggle("repair", on)}
-          aria-label="Auto-repair stale facts"
+          aria-label={t("desk.automations.repairLabel")}
         />
         <IconBolt className="size-3.5 text-muted-foreground" />
-        <span>When a page changes, the agent repairs stale facts</span>
+        <span>{t("desk.automations.repair")}</span>
         {repair?.lastRun ? (
-          <span className="text-muted-foreground">
-            · last {relativeTime(repair.lastRun)} ({repair.lastStatus ?? "—"})
-          </span>
+          <span className="text-muted-foreground">· {lastRunText(repair, t)}</span>
         ) : null}
       </label>
     </section>

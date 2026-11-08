@@ -33,13 +33,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  checkSummary,
   formatWayback,
   hostOf,
-  KIND_LABEL,
   KIND_ORDER,
+  kindLabel,
   relativeTime,
+  saveSummary,
   userTimeZone,
 } from "@/lib/rulebook";
+import { useDeskI18n } from "@/hooks/use-desk-i18n";
 import { useTick } from "@/hooks/use-tick";
 import { replacementFor } from "@/lib/word-diff";
 import { TAB_ID } from "@/lib/tab-id";
@@ -68,6 +71,7 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
   const [showDiff, setShowDiff] = useState(false);
   const [sourceTab, setSourceTab] = useState<string | null>(null);
   const userZone = userTimeZone();
+  const { t, locale } = useDeskI18n();
 
   useDbSync({
     queryClient,
@@ -139,18 +143,18 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
     },
     onError: (err, _input, context) => {
       queryClient.setQueryData(queryKey, (context as { previous?: unknown } | undefined)?.previous);
-      toast.error(actionErrorMessage(err) ?? "Could not update the fact.");
+      toast.error(actionErrorMessage(err) ?? t("desk.rulebook.updateFailed"));
     },
   });
   // The edit dialog has its own mutation, so a row click never closes it.
   const edit = useActionMutation("update-fact", {
     onSuccess: () => setEditing(null),
-    onError: (err) => toast.error(actionErrorMessage(err) ?? "Could not save the fact."),
+    onError: (err) => toast.error(actionErrorMessage(err) ?? t("desk.rulebook.saveFailed")),
   });
 
   const check = useActionMutation("check-sources", {
-    onSuccess: (result) => toast.success(result.message),
-    onError: (err) => toast.error(actionErrorMessage(err) ?? "Check failed."),
+    onSuccess: (result, input) => toast.success(checkSummary(result, input.asOf, t, locale)),
+    onError: (err) => toast.error(actionErrorMessage(err) ?? t("desk.check.failed")),
   });
 
   // Hand-added facts go through the same quote check as the agent's.
@@ -158,13 +162,9 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
   const [draftSourceId, setDraftSourceId] = useState<string | null>(null);
   const saveFacts = useActionMutation("save-facts", {
     onSuccess: (result) => {
-      if (result.rejected.length)
-        toast.error(
-          result.rejected[0]!.reason.startsWith("Quote not found")
-            ? "That sentence isn't on the tracked page, so it can't be saved."
-            : result.rejected[0]!.reason,
-        );
-      else toast.success(result.message);
+      const summary = saveSummary(result, t);
+      if (summary.ok) toast.success(summary.text);
+      else toast.error(summary.text);
       setDraft(null);
       setDraftSourceId(null);
       const added = result.saved[0];
@@ -181,8 +181,8 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
     onError: (err) =>
       toast.error(
         actionErrorCode(err) === "no_valid_facts"
-          ? "That sentence isn't on the tracked page, so it can't be saved. Select the text in the page viewer to quote it exactly."
-          : (actionErrorMessage(err) ?? "Could not add the fact."),
+          ? t("desk.rulebook.quoteNotOnPageHint")
+          : (actionErrorMessage(err) ?? t("desk.rulebook.addFailed")),
       ),
   });
 
@@ -190,13 +190,17 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
   const [pageUrl, setPageUrl] = useState("");
   const addSource = useActionMutation("add-source", {
     onSuccess: (result) => {
-      if (result.status === "error") toast.error(result.error ?? "Could not fetch that page.");
-      else toast.success(`Now tracking ${hostOf(result.url)} (${result.paragraphs} paragraphs).`);
+      if (result.status === "error")
+        toast.error(result.error ?? t("desk.rulebook.pageFetchFailed"));
+      else
+        toast.success(
+          t("desk.rulebook.nowTracking", { host: hostOf(result.url), count: result.paragraphs }),
+        );
       setSourceTab(result.sourceId);
       setPageUrl("");
       setAddingPage(false);
     },
-    onError: (err) => toast.error(actionErrorMessage(err) ?? "Could not add the page."),
+    onError: (err) => toast.error(actionErrorMessage(err) ?? t("desk.rulebook.addPageFailed")),
   });
 
   if (isPending) {
@@ -215,9 +219,9 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
   if (error || !data) {
     return (
       <main className="p-6">
-        <p className="text-sm text-muted-foreground">Rulebook not found.</p>
+        <p className="text-sm text-muted-foreground">{t("desk.rulebook.notFound")}</p>
         <Link to="/desk" className="mt-3 inline-block text-sm underline">
-          Back to rulebooks
+          {t("desk.rulebook.back")}
         </Link>
       </main>
     );
@@ -257,8 +261,8 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
     sendToAgentChat({ message, submit: true, openSidebar: true });
   }
 
-  const extractMsg = `Extract the rules for "${data.name}" (rulebook ${data.id}). Read every source with read-source, then save every deadline, submission item, requirement, eligibility rule, judging criterion and prize with save-facts. Skip anything already saved. Copy each quote verbatim and give deadlines as dueLocal + timeZone exactly as the page states them.`;
-  const repairMsg = `The rules for "${data.name}" (rulebook ${data.id}) changed. For each stale fact, read the changed paragraphs with read-source, save the corrected fact with save-facts and a new verbatim quote, then reject the outdated one with update-fact. Tell me what changed in one line per fact.`;
+  const extractMsg = t("desk.rulebook.extractMorePrompt", { name: data.name, id: data.id });
+  const repairMsg = t("desk.rulebook.repairPrompt", { name: data.name, id: data.id });
 
   const groups = KIND_ORDER.map((kind) => ({
     kind,
@@ -281,7 +285,7 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
                 to="/desk"
                 className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
               >
-                <IconArrowLeft className="size-3.5" /> Rulebooks
+                <IconArrowLeft className="size-3.5" /> {t("desk.nav.rulebooks")}
               </Link>
               <h1 className="desk-serif mt-1 truncate text-2xl leading-tight">{data.name}</h1>
             </div>
@@ -294,7 +298,7 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
                 onClick={() => check.mutate({ rulebookId: data.id })}
               >
                 <IconRefresh className={cn("size-4", check.isPending && "animate-spin")} />
-                Check pages now
+                {t("desk.rulebook.checkNow")}
               </Button>
               <Button
                 variant="outline"
@@ -306,11 +310,11 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
                 }}
               >
                 <IconPlus className="size-4" />
-                Add fact
+                {t("desk.rulebook.addFact")}
               </Button>
               <Button size="sm" className="gap-1.5" onClick={() => askAgent(extractMsg)}>
                 <IconSparkles className="size-4" />
-                {facts.length ? "Ask agent for missing facts" : "Extract with agent"}
+                {facts.length ? t("desk.rulebook.askMissing") : t("desk.rulebook.extract")}
               </Button>
               <DeleteRulebookButton id={data.id} name={data.name} />
             </div>
@@ -341,7 +345,10 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
                 />
                 <span className="truncate">{hostOf(s.url)}{new URL(s.url).pathname.replace(/\/$/, "")}</span>
                 <span className="text-muted-foreground">
-                  · {s.archivedAt ? `archive ${formatWayback(s.archivedAt)}` : relativeTime(s.lastCheckedAt)}
+                  ·{" "}
+                  {s.archivedAt
+                    ? t("desk.rulebook.archiveChip", { date: formatWayback(s.archivedAt, locale) })
+                    : relativeTime(s.lastCheckedAt, t)}
                 </span>
               </button>
             ))}
@@ -352,7 +359,7 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
                   e.preventDefault();
                   const url = pageUrl.trim();
                   if (!/^https?:\/\//i.test(url)) {
-                    toast.error("Paste a full http(s) URL.");
+                    toast.error(t("desk.rulebook.needFullUrl"));
                     return;
                   }
                   addSource.mutate({ rulebookId: data.id, url });
@@ -365,12 +372,12 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
                   onKeyDown={(e) => {
                     if (e.key === "Escape") setAddingPage(false);
                   }}
-                  placeholder="https://… FAQ or updates page"
-                  aria-label="Page URL to track"
+                  placeholder={t("desk.rulebook.pageUrlPlaceholder")}
+                  aria-label={t("desk.rulebook.pageUrlLabel")}
                   className="h-6 w-64 rounded-full px-2.5 font-mono text-[11px]"
                 />
                 <Button type="submit" size="sm" className="h-6 rounded-full px-2.5 text-[11px]" disabled={addSource.isPending}>
-                  {addSource.isPending ? "Fetching…" : "Track"}
+                  {addSource.isPending ? t("desk.rulebook.fetching") : t("desk.rulebook.track")}
                 </Button>
               </form>
             ) : (
@@ -379,7 +386,7 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
                 onClick={() => setAddingPage(true)}
                 className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
               >
-                <IconPlus className="size-3" /> Add page
+                <IconPlus className="size-3" /> {t("desk.rulebook.addPage")}
               </button>
             )}
             {activeSource ? (
@@ -411,21 +418,35 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
                 )}
                 <span className="text-sm font-medium">
                   {latest.kind === "archive"
-                    ? `Rules changed between ${latest.fromArchivedAt ? `the Internet Archive copy of ${formatWayback(latest.fromArchivedAt)}` : "your earlier copy"} and ${latest.archivedAt ? `the copy of ${formatWayback(latest.archivedAt)}` : "today's page"}`
-                    : `Rules changed ${relativeTime(latest.detectedAt)}`}
+                    ? t("desk.rulebook.changedBetween", {
+                        from: latest.fromArchivedAt
+                          ? t("desk.rulebook.fromArchive", {
+                              date: formatWayback(latest.fromArchivedAt, locale),
+                            })
+                          : t("desk.rulebook.fromEarlier"),
+                        to: latest.archivedAt
+                          ? t("desk.rulebook.toArchive", {
+                              date: formatWayback(latest.archivedAt, locale),
+                            })
+                          : t("desk.rulebook.toToday"),
+                      })
+                    : t("desk.rulebook.changedAgo", { when: relativeTime(latest.detectedAt, t) })}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {latest.added.length} paragraph(s) added · {latest.removed.length} removed
-                  {latestAffected.length ? ` · ${latestAffected.length} fact(s) now stale` : ""}
+                  {t("desk.rulebook.paragraphsAdded", { count: latest.added.length })} ·{" "}
+                  {t("desk.rulebook.paragraphsRemoved", { n: latest.removed.length })}
+                  {latestAffected.length
+                    ? ` · ${t("desk.rulebook.factsNowStale", { count: latestAffected.length })}`
+                    : ""}
                 </span>
                 <div className="ml-auto flex items-center gap-1.5">
                   <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowDiff((v) => !v)}>
                     <IconChevronDown className={cn("size-3.5 transition-transform", showDiff && "rotate-180")} />
-                    {showDiff ? "Hide diff" : "Show diff"}
+                    {showDiff ? t("desk.rulebook.hideDiff") : t("desk.rulebook.showDiff")}
                   </Button>
                   {stale.length ? (
                     <Button size="sm" className="h-7 gap-1 text-xs" onClick={() => askAgent(repairMsg)}>
-                      <IconWand className="size-3.5" /> Ask agent to repair
+                      <IconWand className="size-3.5" /> {t("desk.rulebook.askRepair")}
                     </Button>
                   ) : null}
                 </div>
@@ -439,25 +460,23 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
           {facts.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-8 text-center">
               <p className="text-sm text-muted-foreground">
-                No facts yet. The agent reads the pages and proposes each deadline and
-                requirement with the exact sentence it came from.
+                {t("desk.rulebook.noFacts")}
               </p>
               <Button size="sm" className="mt-3 gap-1.5" onClick={() => askAgent(extractMsg)}>
-                <IconSparkles className="size-4" /> Extract with agent
+                <IconSparkles className="size-4" /> {t("desk.rulebook.extract")}
               </Button>
             </div>
           ) : (
             <>
               {proposed.length ? (
                 <p className="text-xs text-muted-foreground">
-                  {proposed.length} proposed fact(s) waiting for your review. Approve only what
-                  the highlighted quote really says.
+                  {t("desk.rulebook.proposedWaiting", { count: proposed.length })}
                 </p>
               ) : null}
               {groups.map((g) => (
-                <section key={g.kind} aria-label={KIND_LABEL[g.kind]}>
+                <section key={g.kind} aria-label={kindLabel(g.kind, t)}>
                   <h2 className="mb-1 flex items-center gap-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {KIND_LABEL[g.kind]}
+                    {kindLabel(g.kind, t)}
                     <span className="font-normal tabular-nums">{g.items.length}</span>
                   </h2>
                   <div className="space-y-0.5">
@@ -507,7 +526,7 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
             }}
           />
         ) : (
-          <p className="p-6 text-sm text-muted-foreground">No pages tracked.</p>
+          <p className="p-6 text-sm text-muted-foreground">{t("desk.rulebook.noPages")}</p>
         )}
       </aside>
 

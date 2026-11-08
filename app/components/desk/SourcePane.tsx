@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDeskI18n } from "@/hooks/use-desk-i18n";
 import { formatWayback, hostOf, relativeTime } from "@/lib/rulebook";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +74,7 @@ export function SourcePane({
     sourceId: source.id,
     limit: 500,
   });
+  const { t, locale } = useDeskI18n();
   const listRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState("");
 
@@ -105,15 +107,17 @@ export function SourcePane({
         </span>
         <span className="shrink-0 text-muted-foreground">
           {source.archivedAt
-            ? `Internet Archive copy · ${formatWayback(source.archivedAt)}`
-            : `fetched ${relativeTime(source.lastCheckedAt)}`}
+            ? t("desk.source.archiveCopy", { date: formatWayback(source.archivedAt, locale) })
+            : source.lastCheckedAt
+              ? t("desk.source.fetchedAgo", { when: relativeTime(source.lastCheckedAt, t) })
+              : t("desk.source.fetchedNever")}
         </span>
         <a
           href={source.url}
           target="_blank"
           rel="noreferrer"
           className="shrink-0 text-muted-foreground hover:text-foreground"
-          aria-label="Open the live page"
+          aria-label={t("desk.source.openLive")}
         >
           <IconExternalLink className="size-3.5" />
         </a>
@@ -132,7 +136,7 @@ export function SourcePane({
           </div>
         ) : error ? (
           <p className="text-sm text-muted-foreground">
-            {source.lastError ?? "This page has not been fetched yet."}
+            {source.lastError ?? t("desk.source.notFetched")}
           </p>
         ) : (
           data?.paragraphs.map((p) => {
@@ -172,7 +176,7 @@ export function SourcePane({
               setSelection("");
             }}
           >
-            Save as fact
+            {t("desk.source.saveAsFact")}
           </Button>
         </div>
       ) : null}

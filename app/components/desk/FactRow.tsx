@@ -11,10 +11,13 @@ import {
 import { InlineDiff } from "@/components/desk/ChangeDiff";
 import { Checkbox } from "@/components/ui/checkbox";
 import { wordDiff } from "@/lib/word-diff";
+import { useDeskI18n } from "@/hooks/use-desk-i18n";
 import {
   countdown,
   editorLabel,
   formatInZone,
+  localizeStaleReason,
+  statusLabel,
   zoneAbbrev,
 } from "@/lib/rulebook";
 import { cn } from "@/lib/utils";
@@ -70,12 +73,16 @@ export function FactRow({
   /** For a stale fact: the new paragraph that most likely replaced its quote. */
   nowSays?: string | null;
 }) {
+  const { t, locale } = useDeskI18n();
   const isChecklist = fact.kind === "requirement" || fact.kind === "submission";
-  const c = fact.dueAt ? countdown(fact.dueAt) : null;
+  const c = fact.dueAt ? countdown(fact.dueAt, t) : null;
   const provenance =
     fact.createdBy === fact.updatedBy
-      ? editorLabel(fact.createdBy)
-      : `${editorLabel(fact.createdBy)} · edited by ${editorLabel(fact.updatedBy).toLowerCase()}`;
+      ? editorLabel(fact.createdBy, t)
+      : t("desk.fact.editedBy", {
+          creator: editorLabel(fact.createdBy, t),
+          editor: editorLabel(fact.updatedBy, t).toLowerCase(),
+        });
 
   return (
     <div
@@ -105,17 +112,23 @@ export function FactRow({
           <Checkbox
             checked={fact.done}
             onCheckedChange={(v) => onToggleDone(v === true)}
-            aria-label={`Mark "${fact.label}" done`}
+            aria-label={t("desk.fact.markDone", { label: fact.label })}
           />
         ) : fact.quoteStatus === "verified" ? (
           <IconCircleCheck
             className="size-4 text-[var(--desk-verified)]"
-            aria-label="Quote verified on the page"
+            aria-label={t("desk.fact.quoteVerified")}
           />
         ) : fact.status === "stale" ? (
-          <IconAlertTriangle className="size-4 text-[var(--desk-stale)]" aria-label="Stale" />
+          <IconAlertTriangle
+            className="size-4 text-[var(--desk-stale)]"
+            aria-label={statusLabel("stale", t)}
+          />
         ) : (
-          <IconCircleDashed className="size-4 text-muted-foreground" aria-label="No verified quote" />
+          <IconCircleDashed
+            className="size-4 text-muted-foreground"
+            aria-label={t("desk.fact.noVerifiedQuote")}
+          />
         )}
       </div>
 
@@ -135,7 +148,7 @@ export function FactRow({
               STATUS_STYLE[fact.status],
             )}
           >
-            {fact.status}
+            {statusLabel(fact.status, t)}
           </span>
         </div>
 
@@ -151,11 +164,13 @@ export function FactRow({
               {c.text}
             </span>
             <span className="tabular-nums text-foreground/90">
-              {formatInZone(fact.dueAt, userZone)}
+              {formatInZone(fact.dueAt, userZone, locale)}
             </span>
             {fact.dueTimeZone && fact.dueTimeZone !== userZone ? (
               <span className="tabular-nums text-muted-foreground">
-                page says {formatInZone(fact.dueAt, fact.dueTimeZone)}
+                {t("desk.fact.pageSays", {
+                  time: formatInZone(fact.dueAt, fact.dueTimeZone, locale),
+                })}
               </span>
             ) : null}
             <span className="tabular-nums text-muted-foreground">
@@ -182,14 +197,14 @@ export function FactRow({
           </p>
         ) : (
           <p className="mt-1 text-[11px] text-muted-foreground">
-            No quote — add the exact sentence before approving.
+            {t("desk.fact.noQuote")}
           </p>
         )}
 
         {fact.status === "stale" && fact.quote && nowSays ? (
           <p className="desk-quote mt-1.5 rounded-md bg-background/60 px-2 py-1 text-[12.5px] leading-snug">
             <span className="mr-1.5 font-sans text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              page now says
+              {t("desk.fact.pageNowSays")}
             </span>
             <InlineDiff parts={wordDiff(fact.quote, nowSays).filter((p) => p.kind !== "del" || p.text.trim())} />
           </p>
@@ -197,7 +212,7 @@ export function FactRow({
 
         {fact.status === "stale" && fact.staleReason ? (
           <p className="mt-1 text-[11px] font-medium text-[var(--desk-stale)]">
-            {fact.staleReason}
+            {localizeStaleReason(fact.staleReason, t, locale)}
           </p>
         ) : null}
 
@@ -206,7 +221,14 @@ export function FactRow({
           {fact.quoteStatus === "verified" && fact.quoteParagraph != null ? (
             <span>· ¶{fact.quoteParagraph}</span>
           ) : null}
-          {fact.dueTimeZone ? <span>· {zoneAbbrev(fact.dueAt ?? new Date().toISOString(), fact.dueTimeZone)} → UTC in code</span> : null}
+          {fact.dueTimeZone ? (
+            <span>
+              ·{" "}
+              {t("desk.fact.utcInCode", {
+                zone: zoneAbbrev(fact.dueAt ?? new Date().toISOString(), fact.dueTimeZone),
+              })}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -221,11 +243,11 @@ export function FactRow({
             disabled={fact.quoteStatus !== "verified"}
             title={
               fact.quoteStatus === "verified"
-                ? "Approve"
-                : "Only facts with a verified quote can be approved"
+                ? t("desk.fact.approve")
+                : t("desk.fact.approveDisabled")
             }
             className="inline-flex size-7 items-center justify-center rounded-md text-[var(--desk-verified)] hover:bg-[var(--desk-verified-bg)] disabled:cursor-not-allowed disabled:opacity-30"
-            aria-label="Approve"
+            aria-label={t("desk.fact.approve")}
           >
             <IconCheck className="size-4" />
           </button>
@@ -235,8 +257,8 @@ export function FactRow({
             type="button"
             onClick={onReject}
             className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Reject"
-            title="Reject"
+            aria-label={t("desk.fact.reject")}
+            title={t("desk.fact.reject")}
           >
             <IconX className="size-4" />
           </button>
@@ -245,8 +267,8 @@ export function FactRow({
           type="button"
           onClick={onEdit}
           className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Edit"
-          title="Edit"
+          aria-label={t("desk.fact.edit")}
+          title={t("desk.fact.edit")}
         >
           <IconPencil className="size-4" />
         </button>

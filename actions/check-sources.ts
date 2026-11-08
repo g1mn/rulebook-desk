@@ -27,6 +27,8 @@ export default defineAction({
   }),
   outputSchema: z.object({
     results: z.array(refreshOut),
+    /** Pages skipped by the sweep because they are pinned to an Internet Archive copy. */
+    pinned: z.number().optional(),
     message: z.string(),
   }),
   searchHints: ["drift", "recheck rules", "what changed", "compare archive"],
@@ -94,6 +96,7 @@ export default defineAction({
     const errors = results.filter((r) => r.status === "error").length;
     return {
       results,
+      pinned,
       message: `${args.asOf ? `Loaded the Internet Archive copy from ${args.asOf}. ` : ""}Checked ${results.length} page(s): ${changed.length} changed, ${stale} fact(s) now stale${errors ? `, ${errors} failed to load` : ""}.${pinned ? ` Skipped ${pinned} page(s) pinned to an Internet Archive copy.` : ""}`,
     };
   },

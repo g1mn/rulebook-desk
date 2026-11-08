@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
+import { useDeskI18n } from "@/hooks/use-desk-i18n";
 import { countdown, shortDate } from "@/lib/rulebook";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ const DAY = 86_400_000;
 /** Upcoming deadlines across every rulebook on one time axis. */
 export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
   const now = Date.now();
+  const { t, locale } = useDeskI18n();
   const boxRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(1000);
   useEffect(() => {
@@ -63,18 +65,18 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
 
   return (
     <section
-      aria-label="Upcoming deadlines"
+      aria-label={t("desk.timeline.label")}
       className="overflow-hidden rounded-xl border border-border bg-card px-4 pb-3 pt-4"
     >
       <div ref={boxRef} className="relative h-36">
         {placed.length === 0 ? (
           <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-            Deadlines you approve or review show up here.
+            {t("desk.timeline.empty")}
           </p>
         ) : null}
         {hidden ? (
           <span className="absolute right-0 top-0 text-[10px] text-muted-foreground">
-            +{hidden} more
+            {t("desk.timeline.more", { n: hidden })}
           </span>
         ) : null}
         <div className="absolute inset-x-0 bottom-6 h-px bg-border" />
@@ -84,11 +86,11 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
           aria-hidden
         >
           <span className="absolute -top-0.5 left-1 text-[10px] font-medium uppercase tracking-wide text-[var(--desk-accent)]">
-            now
+            {t("desk.timeline.now")}
           </span>
         </div>
         {placed.map((item) => {
-          const c = countdown(item.dueAt, now);
+          const c = countdown(item.dueAt, t, now);
           return (
             <Link
               key={item.rulebookId + item.label + item.dueAt}
@@ -108,10 +110,14 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
                       ? "border-[var(--desk-accent)] bg-[var(--desk-accent-bg)] text-foreground"
                       : "border-border bg-background text-foreground group-hover:border-foreground/40",
                 )}
-                title={`${item.rulebookName} — ${item.label} (${c.text})`}
+                title={t("desk.timeline.chipTitle", {
+                  name: item.rulebookName,
+                  label: item.label,
+                  countdown: c.text,
+                })}
               >
                 <span className="truncate">{item.rulebookName}</span>
-                <span className="text-muted-foreground">· {shortDate(item.dueAt)}</span>
+                <span className="text-muted-foreground">· {shortDate(item.dueAt, undefined, locale)}</span>
               </span>
             </Link>
           );
@@ -128,13 +134,13 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
           />
         ))}
         <div className="absolute inset-x-0 bottom-0 h-5">
-          {ticks.map((t) => (
+          {ticks.map((tick) => (
             <span
-              key={t}
+              key={tick}
               className="absolute -translate-x-1/2 text-[10px] tabular-nums text-muted-foreground"
-              style={{ left: `${((t - start) / (end - start)) * 100}%` }}
+              style={{ left: `${((tick - start) / (end - start)) * 100}%` }}
             >
-              {shortDate(new Date(t).toISOString())}
+              {shortDate(new Date(tick).toISOString(), undefined, locale)}
             </span>
           ))}
         </div>

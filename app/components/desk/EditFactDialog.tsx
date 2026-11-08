@@ -12,7 +12,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { KIND_ORDER, KIND_SINGULAR, type FactKind } from "@/lib/rulebook";
+import { useDeskI18n } from "@/hooks/use-desk-i18n";
+import { KIND_ORDER, kindSingular, type FactKind } from "@/lib/rulebook";
 
 import type { Fact } from "./FactRow";
 
@@ -44,6 +45,7 @@ export function EditFactDialog({
   onOpenChange: (open: boolean) => void;
   onSave: (patch: FactPatch) => void;
 }) {
+  const { t } = useDeskI18n();
   const creating = !fact;
   const [label, setLabel] = useState("");
   const [detail, setDetail] = useState("");
@@ -73,7 +75,7 @@ export function EditFactDialog({
   function save(event: React.FormEvent) {
     event.preventDefault();
     if (dueLocal && !zone.trim()) {
-      toast.error("Add the time zone the page uses (for example PT, UTC or Asia/Seoul).");
+      toast.error(t("desk.edit.needZone"));
       return;
     }
     if (creating) {
@@ -107,15 +109,15 @@ export function EditFactDialog({
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={save} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{creating ? "Add fact" : "Edit fact"}</DialogTitle>
+            <DialogTitle>{creating ? t("desk.edit.addTitle") : t("desk.edit.editTitle")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
             <div className="space-y-1.5">
-              <Label htmlFor="f-label">Label</Label>
+              <Label htmlFor="f-label">{t("desk.edit.label")}</Label>
               <Input id="f-label" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={140} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="f-kind">Kind</Label>
+              <Label htmlFor="f-kind">{t("desk.edit.kind")}</Label>
               <select
                 id="f-kind"
                 value={kind}
@@ -124,18 +126,18 @@ export function EditFactDialog({
               >
                 {KIND_ORDER.map((k) => (
                   <option key={k} value={k}>
-                    {KIND_SINGULAR[k]}
+                    {kindSingular(k, t)}
                   </option>
                 ))}
               </select>
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="f-detail">Note</Label>
+            <Label htmlFor="f-detail">{t("desk.edit.note")}</Label>
             <Textarea id="f-detail" rows={2} value={detail} onChange={(e) => setDetail(e.target.value)} maxLength={600} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="f-quote">Exact quote from the page</Label>
+            <Label htmlFor="f-quote">{t("desk.edit.quote")}</Label>
             <Textarea
               id="f-quote"
               rows={3}
@@ -145,25 +147,29 @@ export function EditFactDialog({
               maxLength={800}
             />
             <p className="text-[11px] text-muted-foreground">
-              Checked against the fetched page when you save. Only verified quotes can be approved.
+              {t("desk.edit.quoteHelp")}
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="f-due">Date & time as written</Label>
+              <Label htmlFor="f-due">{t("desk.edit.due")}</Label>
               <Input id="f-due" type="datetime-local" value={dueLocal} onChange={(e) => setDueLocal(e.target.value.slice(0, 16))} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="f-zone">Page's time zone</Label>
-              <Input id="f-zone" placeholder="PT, UTC, Asia/Seoul…" value={zone} onChange={(e) => setZone(e.target.value)} />
+              <Label htmlFor="f-zone">{t("desk.edit.zone")}</Label>
+              <Input id="f-zone" placeholder={t("desk.edit.zonePlaceholder")} value={zone} onChange={(e) => setZone(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("desk.edit.cancel")}
             </Button>
             <Button type="submit" disabled={pending || !label.trim()}>
-              {pending ? "Saving…" : creating ? "Add as proposed" : "Save"}
+              {pending
+                ? t("desk.edit.saving")
+                : creating
+                  ? t("desk.edit.addProposed")
+                  : t("desk.edit.save")}
             </Button>
           </DialogFooter>
         </form>
