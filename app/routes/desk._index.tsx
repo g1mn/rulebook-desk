@@ -49,10 +49,14 @@ export default function DeskIndex() {
       setUrls("");
       setAsOf("");
       navigate(`/desk/${result.id}`);
+      // A new rulebook gets its own chat, whatever thread (an automation run,
+      // an older extraction) the sidebar happens to show.
       sendToAgentChat({
         message: extractPrompt(result.name, result.id),
         submit: true,
         openSidebar: true,
+        newTab: true,
+        reuseEmptyTab: true,
       });
     },
     onError: (error) =>
