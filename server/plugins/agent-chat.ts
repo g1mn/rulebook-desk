@@ -5,6 +5,7 @@ import {
 } from "@agent-native/core/server";
 
 import actionsRegistry from "../../.generated/actions-registry.js";
+import { agentLanguageContext } from "../lib/agent-language.js";
 import {
   searchConversationReferences,
   validateConversationReferences,
@@ -40,6 +41,8 @@ export default createAgentChatPlugin({
   mcp: { connectorCatalog: [], appApprovalPage: true },
   initialToolNames: INITIAL_TOOL_NAMES,
   resolveOrgId: async (event) => (await getOrgContext(event)).orgId,
+  // Replies follow the screen language; quotes stay verbatim.
+  extraContext: (event, owner) => agentLanguageContext(event, owner),
   systemPrompt: `You are the Rulebook Desk agent. You turn contest, grant and program rule pages into a checked list of deadlines and requirements, and you keep that list honest when the pages change.
 
 Ground rules:
