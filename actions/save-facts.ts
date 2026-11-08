@@ -64,7 +64,7 @@ const factIn = z.object({
 
 export default defineAction({
   description:
-    "Save deadlines and requirements for a rulebook in one batch. Each fact needs a verbatim quote from read-source; quotes not found on any fetched page are rejected (not saved) and listed in `rejected`, and a deadline is rejected unless its quote states that date (and hour, if the quote has a time). Deadline times are converted to UTC in code from dueLocal + timeZone, so never convert times yourself. New facts start as proposed for human review.",
+    "Save deadlines and requirements for a rulebook in one batch. Each fact needs a verbatim quote from read-source; quotes not found on any fetched page are rejected (not saved) and listed in `rejected`, and a deadline is rejected unless its quote states that date (and hour, if the quote has a time); when the quote gives no year, the year must be the one the page meant when it was captured. Deadline times are converted to UTC in code from dueLocal + timeZone, so never convert times yourself. New facts start as proposed for human review.",
   schema: z.object({
     rulebookId: z.string().describe("Rulebook id"),
     facts: z.array(factIn).min(1).max(40).describe("Facts to save"),
@@ -128,17 +128,6 @@ export default defineAction({
           continue;
         }
         dueAt = dueToUtc(f.dueLocal, timeZone);
-        if (f.quote?.trim()) {
-          const dated = dateInQuote(f.dueLocal, f.quote);
-          if (!dated.ok) {
-            rejected.push({
-              index,
-              label: f.label,
-              reason: `${dated.reason} Quote the sentence that states this date.`,
-            });
-            continue;
-          }
-        }
       }
       const check = await checkQuote(rulebook.id, f.quote, f.sourceId, texts);
       if (check.quoteStatus === "unverified") {
@@ -148,6 +137,17 @@ export default defineAction({
           reason: "Quote not found verbatim on any fetched page. Copy the exact sentence from read-source.",
         });
         continue;
+      }
+      if (f.dueLocal && f.quote?.trim()) {
+        const dated = dateInQuote(f.dueLocal, f.quote, { capturedAt: check.capturedAt });
+        if (!dated.ok) {
+          rejected.push({
+            index,
+            label: f.label,
+            reason: `${dated.reason} Quote the sentence that states this date.`,
+          });
+          continue;
+        }
       }
       const id = crypto.randomUUID();
       seen.set(key, id);

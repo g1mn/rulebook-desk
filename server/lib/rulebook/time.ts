@@ -127,7 +127,29 @@ export function dueToUtc(dueLocal: string, timeZone: string): string {
   return zonedLocalToUtc(isDateOnly(dueLocal) ? `${dueLocal.trim()}T00:00` : dueLocal, timeZone);
 }
 
-export function dateInQuote(dueLocal: string, quote: string): { ok: boolean; reason?: string } {
+const DAY_MS = 86_400_000;
+
+/**
+ * The year a month/day with no year most likely means on a page captured at
+ * `capturedAt`: the one that lands from 3 months before to 9 months after the
+ * capture (rule pages mostly look ahead). One year fits that 365-day window.
+ */
+export function yearForUndatedDay(month: number, day: number, capturedAt: string): number | null {
+  const at = Date.parse(capturedAt);
+  if (!Number.isFinite(at)) return null;
+  const year = new Date(at).getUTCFullYear();
+  for (const y of [year - 1, year, year + 1]) {
+    const diff = (Date.UTC(y, month - 1, day) - at) / DAY_MS;
+    if (diff >= -90 && diff < 275) return y;
+  }
+  return null;
+}
+
+export function dateInQuote(
+  dueLocal: string,
+  quote: string,
+  opts: { capturedAt?: string | null | undefined } = {},
+): { ok: boolean; reason?: string } {
   const dateOnly = isDateOnly(dueLocal);
   const m = LOCAL_RE.exec(dateOnly ? `${dueLocal.trim()}T00:00` : dueLocal.trim());
   if (!m) return { ok: false, reason: "dueLocal is not YYYY-MM-DDTHH:mm" };
@@ -154,6 +176,8 @@ export function dateInQuote(dueLocal: string, quote: string): { ok: boolean; rea
   ].some((pattern) => q.includes(pattern));
   if (!numeric && !(monthName && day))
     return { ok: false, reason: `The quote does not state ${dueLocal.slice(0, 10)}.` };
+  const year = yearCheck(y!, mo!, d!, q, names, opts.capturedAt ?? null);
+  if (!year.ok) return year;
   const hasClock = /\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(am|pm|a\.m\.|p\.m\.)|\bnoon\b|\bmidnight\b/.test(q);
   if (dateOnly) return { ok: true };
   if (!hasClock)
@@ -175,4 +199,50 @@ export function dateInQuote(dueLocal: string, quote: string): { ok: boolean; rea
   return clock || word
     ? { ok: true }
     : { ok: false, reason: `The quote gives a time, but not ${dueLocal.slice(11, 16)}.` };
+}
+
+/**
+ * The year must be the one the quote gives for that day. When the quote gives
+ * no year at all, it must be the year the page meant when it was captured.
+ * Ranges like "December 16 – January 29, 2027" give the first day no year of
+ * its own, so any year the quote names, or the one before it, is accepted.
+ */
+function yearCheck(
+  y: number,
+  mo: number,
+  d: number,
+  q: string,
+  names: string[],
+  capturedAt: string | null,
+): { ok: boolean; reason?: string } {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const ymd = `${y}-${pad(mo)}-${pad(d)}`;
+  const month = `(?:${names.join("|")})\\.?`;
+  const dayRe = `0?${d}(?:st|nd|rd|th)?`;
+  const attached = [
+    new RegExp(`\\b${month}\\s+${dayRe},?\\s+((?:19|20)\\d{2})\\b`, "g"),
+    new RegExp(`(?:^|[^\\d])${dayRe}\\s+${month},?\\s+((?:19|20)\\d{2})\\b`, "g"),
+    new RegExp(`((?:19|20)\\d{2})\\s*년\\s*0?${mo}\\s*월\\s*0?${d}\\s*일`, "g"),
+    new RegExp(`((?:19|20)\\d{2})[-./]0?${mo}[-./]0?${d}(?!\\d)`, "g"),
+    new RegExp(`(?:^|[^\\d])0?${mo}/0?${d}/((?:19|20)\\d{2})\\b`, "g"),
+  ].flatMap((re) => [...q.matchAll(re)].map((m) => Number(m[1])));
+  if (attached.length)
+    return attached.includes(y)
+      ? { ok: true }
+      : { ok: false, reason: `The quote gives that day as ${attached[0]}, not ${y}.` };
+  // Only numbers near the due year read as years ("$2000 prize" is not one).
+  const named = [...q.matchAll(/(?:^|[^\d$€£,.])((?:19|20)\d{2})(?!\d)/g)]
+    .map((m) => Number(m[1]))
+    .filter((n) => Math.abs(n - y) <= 3);
+  if (named.length)
+    return named.some((n) => n === y || n - 1 === y)
+      ? { ok: true }
+      : { ok: false, reason: `The quote names ${[...new Set(named)].join(", ")}, not ${y}.` };
+  if (!capturedAt) return { ok: true };
+  const expected = yearForUndatedDay(mo, d, capturedAt);
+  if (expected === null || expected === y) return { ok: true };
+  return {
+    ok: false,
+    reason: `The quote gives no year, and on a page captured ${capturedAt.slice(0, 10)} that day means ${expected}-${pad(mo)}-${pad(d)}, not ${ymd}. Quote a sentence that states the year if the page says otherwise.`,
+  };
 }

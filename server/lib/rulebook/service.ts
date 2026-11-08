@@ -84,30 +84,54 @@ export async function currentText(
   return snap?.text ?? null;
 }
 
+export interface SourceText {
+  sourceId: string;
+  url: string;
+  text: string;
+  /** When this text was on the page: the Wayback capture time, else our fetch time. */
+  capturedAt: string;
+}
+
 /** Latest text for every fetched source of a rulebook. */
-export async function rulebookTexts(rulebookId: string) {
-  const db = getDb();
-  const rows = await db
+export async function rulebookTexts(rulebookId: string): Promise<SourceText[]> {
+  const rows = await getDb()
     .select({
       id: schema.sources.id,
       url: schema.sources.url,
-      snapshotId: schema.sources.currentSnapshotId,
+      text: schema.snapshots.text,
+      fetchedAt: schema.snapshots.fetchedAt,
+      archivedAt: schema.snapshots.archivedAt,
     })
     .from(schema.sources)
+    .innerJoin(schema.snapshots, eq(schema.snapshots.id, schema.sources.currentSnapshotId))
     .where(eq(schema.sources.rulebookId, rulebookId))
     .limit(20);
-  const out: { sourceId: string; url: string; text: string }[] = [];
-  for (const row of rows) {
-    const text = await currentText(row.snapshotId);
-    if (text) out.push({ sourceId: row.id, url: row.url, text });
-  }
-  return out;
+  return rows.map((row) => ({
+    sourceId: row.id,
+    url: row.url,
+    text: row.text,
+    capturedAt: captureTime(row),
+  }));
+}
+
+/** Capture time of the current text of one source, for year checks. */
+export async function sourceCapturedAt(sourceId: string | null): Promise<string | null> {
+  if (!sourceId) return null;
+  const [row] = await getDb()
+    .select({ fetchedAt: schema.snapshots.fetchedAt, archivedAt: schema.snapshots.archivedAt })
+    .from(schema.sources)
+    .innerJoin(schema.snapshots, eq(schema.snapshots.id, schema.sources.currentSnapshotId))
+    .where(eq(schema.sources.id, sourceId))
+    .limit(1);
+  return row ? captureTime(row) : null;
 }
 
 export interface QuoteCheck {
   quoteStatus: "verified" | "unverified" | "none";
   sourceId: string | null;
   quoteParagraph: number | null;
+  /** Capture time of the page text the quote was found in. */
+  capturedAt?: string | null;
 }
 
 /** Look for the quote in the given source first, then any source of the rulebook. */
@@ -115,7 +139,7 @@ export async function checkQuote(
   rulebookId: string,
   quote: string | null | undefined,
   preferredSourceId?: string | null,
-  preloaded?: { sourceId: string; url: string; text: string }[],
+  preloaded?: SourceText[],
 ): Promise<QuoteCheck> {
   if (!quote || !quote.trim())
     return {
@@ -134,6 +158,7 @@ export async function checkQuote(
         quoteStatus: "verified",
         sourceId: t.sourceId,
         quoteParagraph: match.paragraph,
+        capturedAt: t.capturedAt,
       };
   }
   return {
@@ -159,7 +184,7 @@ export interface RefreshResult {
 }
 
 /** Capture time of a snapshot as ISO: the Wayback timestamp, else when we fetched it. */
-function captureTime(snap: { archivedAt: string | null; fetchedAt: string }): string {
+export function captureTime(snap: { archivedAt: string | null; fetchedAt: string }): string {
   const m = snap.archivedAt
     ? /^(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?/.exec(snap.archivedAt)
     : null;

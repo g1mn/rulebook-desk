@@ -8,6 +8,7 @@ import {
   checkQuote,
   editorFor,
   requireRulebook,
+  sourceCapturedAt,
 } from "../server/lib/rulebook/service.js";
 import {
   dateInQuote,
@@ -128,7 +129,10 @@ export default defineAction({
       finalLocal &&
       finalQuote
     ) {
-      const dated = dateInQuote(finalLocal, finalQuote);
+      const sourceId = patch.sourceId !== undefined ? patch.sourceId : fact.sourceId;
+      const dated = dateInQuote(finalLocal, finalQuote, {
+        capturedAt: await sourceCapturedAt(sourceId ?? null),
+      });
       if (!dated.ok)
         fail(`${dated.reason} Quote the sentence that states this date.`, {
           errorCode: "date_not_in_quote",

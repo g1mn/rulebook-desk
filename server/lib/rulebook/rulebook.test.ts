@@ -7,7 +7,7 @@ import {
   normalizeForMatch,
   withoutCounterNoise,
 } from "./text.js";
-import { dateInQuote, resolveTimeZone, zonedLocalToUtc } from "./time.js";
+import { dateInQuote, resolveTimeZone, yearForUndatedDay, zonedLocalToUtc } from "./time.js";
 
 describe("zonedLocalToUtc", () => {
   it("matches the Agent-Native rules' own UTC statement", () => {
@@ -92,6 +92,41 @@ describe("dateInQuote", () => {
     // No time in the sentence: an invented midnight is rejected, the date alone is fine.
     expect(dateInQuote("2026-12-11T00:00", "Winners announced on or around December 11, 2026.").ok).toBe(false);
     expect(dateInQuote("2026-12-11", "Winners announced on or around December 11, 2026.").ok).toBe(true);
+  });
+  it("rejects a year the quote contradicts", () => {
+    // Kiroween 2025 page (Wayback 2025-11-18) read as if it were this year's contest.
+    expect(dateInQuote("2026-12-05", "Submissions close December 5, 2025.").ok).toBe(false);
+    expect(dateInQuote("2025-12-05", "Submissions close December 5, 2025.").ok).toBe(true);
+    expect(dateInQuote("2026-01-12", "Judging Period: December 8, 2025 – January 12, 2026").ok).toBe(true);
+    expect(dateInQuote("2025-01-12", "Judging Period: December 8, 2025 – January 12, 2026").ok).toBe(false);
+    expect(dateInQuote("2026-11-10", "2026년 11월 10일(화) 17시 마감").ok).toBe(true);
+    expect(dateInQuote("2025-11-10", "2026년 11월 10일(화) 17시 마감").ok).toBe(false);
+    expect(dateInQuote("2025-12-05", "Deadline 2026-12-05").ok).toBe(false);
+  });
+  it("lets the first day of a range borrow the year that ends it", () => {
+    const quote = "Judging runs December 16 – January 29, 2027.";
+    expect(dateInQuote("2026-12-16", quote).ok).toBe(true);
+    expect(dateInQuote("2027-01-29", quote).ok).toBe(true);
+    expect(dateInQuote("2024-12-16", quote).ok).toBe(false);
+  });
+  it("without a year, uses the year the page meant when it was captured", () => {
+    const archived = { capturedAt: "2025-11-18T00:00:00.000Z" };
+    expect(dateInQuote("2025-12-05", "Submissions close December 5.", archived).ok).toBe(true);
+    expect(dateInQuote("2026-12-05", "Submissions close December 5.", archived).ok).toBe(false);
+    expect(dateInQuote("2026-01-12", "Judging ends January 12.", archived).ok).toBe(true);
+    expect(dateInQuote("2025-01-12", "Judging ends January 12.", archived).ok).toBe(false);
+    // A page captured in January that names an October deadline looks ahead.
+    expect(dateInQuote("2026-10-15", "Applications are due October 15.", { capturedAt: "2026-01-20T00:00:00.000Z" }).ok).toBe(true);
+    // A prize amount is not a year.
+    expect(dateInQuote("2025-12-05", "Win $2000. Submissions close December 5.", archived).ok).toBe(true);
+    // Without a capture time there is nothing to compare against.
+    expect(dateInQuote("2026-12-05", "Submissions close December 5.").ok).toBe(true);
+  });
+  it("yearForUndatedDay picks the one year in the look-ahead window", () => {
+    expect(yearForUndatedDay(12, 5, "2025-11-18T00:00:00.000Z")).toBe(2025);
+    expect(yearForUndatedDay(1, 12, "2025-11-18T00:00:00.000Z")).toBe(2026);
+    expect(yearForUndatedDay(9, 1, "2025-11-18T00:00:00.000Z")).toBe(2025);
+    expect(yearForUndatedDay(8, 1, "2025-11-18T00:00:00.000Z")).toBe(2026);
   });
 });
 
