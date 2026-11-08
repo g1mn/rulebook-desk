@@ -4,6 +4,7 @@ import {
 } from "@agent-native/toolkit/app-shell";
 import { AgentToggleButton } from "@agent-native/toolkit/app/chat";
 
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { MobileAppBar } from "./MobileAppBar";
 
 interface HeaderProps {
@@ -22,6 +23,7 @@ export function Header({ onOpenMobileSidebar }: HeaderProps) {
       actions={
         <>
           {actions}
+          <LanguageSwitcher />
           <AgentToggleButton />
         </>
       }
