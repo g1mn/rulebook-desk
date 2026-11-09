@@ -23,6 +23,7 @@ Rules pages are long, they change, and the dates are written in someone else's t
 | **Drift watch** | "Check pages now" (and an optional daily automation) re-fetches every page, stores a snapshot when the text changed, shows the edit word by word, and marks a fact *stale* when its quoted sentence is gone, with "page now says …" beside it. Counter churn ("Participants (547)" → "(2421)") is ignored; dates, amounts and team sizes never are. A framework event (`rulebook.source.changed`) lets an automation ask the agent to repair stale facts. If the sentence comes back, the fact returns to *proposed*. |
 | **Internet Archive history** | Start tracking from a Wayback Machine copy (the version you read when you entered; the daily check leaves such pinned pages alone), then load a newer copy to replay how the rules changed, or an older one to see what changed since then without touching your current facts. |
 | **One timeline** | Every tracked deadline across contests on one axis, with countdowns. Requirements become a checklist once approved. |
+| **Ten languages** | English (default), 한국어, 日本語, 简体中文, 繁體中文, Español, Français, Deutsch, Português and Tiếng Việt, chosen from the header menu and saved to your account. Dates, countdowns and plurals follow the chosen language, and the agent answers in it. Quoted rule sentences always stay exactly as written on the page. |
 
 ## Real runs on real pages
 
