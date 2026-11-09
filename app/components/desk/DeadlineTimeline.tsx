@@ -2,14 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { useDeskI18n } from "@/hooks/use-desk-i18n";
-import { countdown, shortDate } from "@/lib/rulebook";
+import { factCountdown, isDateOnly, shortDate } from "@/lib/rulebook";
 import { cn } from "@/lib/utils";
 
 export interface TimelineItem {
   rulebookId: string;
   rulebookName: string;
   label: string;
+  /** Start of the day in the page's zone for a date-only deadline: position only, never shown as a time. */
   dueAt: string;
+  dueLocal: string | null;
+  dueTimeZone: string | null;
   status: string;
 }
 
@@ -90,7 +93,7 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
           </span>
         </div>
         {placed.map((item) => {
-          const c = countdown(item.dueAt, t, now);
+          const c = factCountdown(item, t, now);
           return (
             <Link
               key={item.rulebookId + item.label + item.dueAt}
@@ -117,7 +120,12 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
                 })}
               >
                 <span className="truncate">{item.rulebookName}</span>
-                <span className="text-muted-foreground">· {shortDate(item.dueAt, undefined, locale)}</span>
+                <span className="text-muted-foreground">
+                  ·{" "}
+                  {isDateOnly(item.dueLocal)
+                    ? shortDate(`${item.dueLocal.trim()}T00:00:00Z`, "UTC", locale)
+                    : shortDate(item.dueAt, undefined, locale)}
+                </span>
               </span>
             </Link>
           );

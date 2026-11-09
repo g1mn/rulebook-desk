@@ -13,10 +13,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { wordDiff } from "@/lib/word-diff";
 import { useDeskI18n } from "@/hooks/use-desk-i18n";
 import {
-  countdown,
+  dateOnlyText,
   editorInline,
   editorLabel,
+  factCountdown,
   formatInZone,
+  isDateOnly,
   localizeStaleReason,
   statusLabel,
   utcText,
@@ -77,7 +79,9 @@ export function FactRow({
 }) {
   const { t, locale } = useDeskI18n();
   const isChecklist = fact.kind === "requirement" || fact.kind === "submission";
-  const c = fact.dueAt ? countdown(fact.dueAt, t) : null;
+  const c = fact.dueAt ? factCountdown({ ...fact, dueAt: fact.dueAt }, t) : null;
+  // The page gave a date and no time: show that date, never a made-up midnight.
+  const dateOnly = isDateOnly(fact.dueLocal) ? fact.dueLocal.trim() : null;
   const provenance =
     fact.createdBy === fact.updatedBy
       ? editorLabel(fact.createdBy, t)
@@ -165,19 +169,32 @@ export function FactRow({
             >
               {c.text}
             </span>
-            <span className="tabular-nums text-foreground/90">
-              {formatInZone(fact.dueAt, userZone, locale)}
-            </span>
-            {fact.dueTimeZone && fact.dueTimeZone !== userZone ? (
-              <span className="tabular-nums text-muted-foreground">
-                {t("desk.fact.pageSays", {
-                  time: formatInZone(fact.dueAt, fact.dueTimeZone, locale),
-                })}
-              </span>
-            ) : null}
-            <span className="tabular-nums text-muted-foreground">
-              {utcText(fact.dueAt)}
-            </span>
+            {dateOnly ? (
+              <>
+                <span className="tabular-nums text-foreground/90">
+                  {t("desk.fact.pageSays", { time: dateOnlyText(dateOnly, t, locale) })}
+                </span>
+                <span className="rounded bg-muted px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("desk.time.dateOnly")}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="tabular-nums text-foreground/90">
+                  {formatInZone(fact.dueAt, userZone, locale)}
+                </span>
+                {fact.dueTimeZone && fact.dueTimeZone !== userZone ? (
+                  <span className="tabular-nums text-muted-foreground">
+                    {t("desk.fact.pageSays", {
+                      time: formatInZone(fact.dueAt, fact.dueTimeZone, locale),
+                    })}
+                  </span>
+                ) : null}
+                <span className="tabular-nums text-muted-foreground">
+                  {utcText(fact.dueAt)}
+                </span>
+              </>
+            )}
           </div>
         ) : null}
 
@@ -223,7 +240,7 @@ export function FactRow({
           {fact.quoteStatus === "verified" && fact.quoteParagraph != null ? (
             <span>· ¶{fact.quoteParagraph}</span>
           ) : null}
-          {fact.dueTimeZone ? (
+          {fact.dueTimeZone && !dateOnly ? (
             <span>
               ·{" "}
               {t("desk.fact.utcInCode", {

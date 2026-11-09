@@ -28,8 +28,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useDeskI18n } from "@/hooks/use-desk-i18n";
 import {
   checkSummary,
-  countdown,
+  dateOnlyText,
+  factCountdown,
   formatInZone,
+  isDateOnly,
   relativeTime,
   userTimeZone,
 } from "@/lib/rulebook";
@@ -103,6 +105,8 @@ export default function DeskIndex() {
       rulebookName: b.name,
       label: d.label,
       dueAt: d.dueAt,
+      dueLocal: d.dueLocal,
+      dueTimeZone: d.dueTimeZone,
       status: d.status,
     })),
   );
@@ -210,7 +214,13 @@ export default function DeskIndex() {
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {books.map((b) => {
             const next = b.nextDeadline;
-            const c = next ? countdown(next.dueAt, t) : null;
+            const c = next ? factCountdown(next, t) : null;
+            // A date with no time on the page: show the date, not a made-up midnight.
+            const nextWhen = next
+              ? isDateOnly(next.dueLocal)
+                ? dateOnlyText(next.dueLocal, t, locale)
+                : formatInZone(next.dueAt, tz, locale)
+              : "";
             const pct = b.requirementsTotal
               ? Math.round((b.requirementsDone / b.requirementsTotal) * 100)
               : 0;
@@ -241,9 +251,9 @@ export default function DeskIndex() {
                     <div className="mt-0.5 truncate text-xs text-muted-foreground">{next.label}</div>
                     <div
                       className="truncate text-xs tabular-nums text-muted-foreground"
-                      title={formatInZone(next.dueAt, tz, locale)}
+                      title={nextWhen}
                     >
-                      {formatInZone(next.dueAt, tz, locale)}
+                      {nextWhen}
                     </div>
                   </div>
                 ) : (
