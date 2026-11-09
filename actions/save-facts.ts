@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
+import { resolveClockViewer, withClock } from "../server/lib/rulebook/clock.js";
 import {
   factKind,
   factOut,
@@ -64,7 +65,7 @@ const factIn = z.object({
 
 export default defineAction({
   description:
-    "Save deadlines and requirements for a rulebook in one batch. Each fact needs a verbatim quote from read-source; quotes not found on any fetched page are rejected (not saved) and listed in `rejected`, and a deadline is rejected unless its quote states that date (and hour, if the quote has a time); when the quote gives no year, the year must be the one the page meant when it was captured. Deadline times are converted to UTC in code from dueLocal + timeZone, so never convert times yourself. New facts start as proposed for human review.",
+    "Save deadlines and requirements for a rulebook in one batch. Each fact needs a verbatim quote from read-source; quotes not found on any fetched page are rejected (not saved) and listed in `rejected`, and a deadline is rejected unless its quote states that date (and hour, if the quote has a time); when the quote gives no year, the year must be the one the page meant when it was captured. Deadline times are converted to UTC in code from dueLocal + timeZone, so never convert times yourself; each saved deadline comes back with a clock (timeLeft, yourTime, pageTime, utc) to quote as is. New facts start as proposed for human review.",
   schema: z.object({
     rulebookId: z.string().describe("Rulebook id"),
     facts: z.array(factIn).min(1).max(40).describe("Facts to save"),
@@ -204,11 +205,30 @@ export default defineAction({
         detail: r.reason.slice(0, 120),
       })),
     };
+    // Deadlines go back with their clock (time left, each zone) computed in
+    // code, so the agent's reply quotes them instead of doing time math.
+    const viewer = await resolveClockViewer(ctx?.userEmail);
+    const clockNow = Date.now();
+    const out = saved.map((row) => withClock(toFactOut(row), viewer, clockNow));
+    const dated = out
+      .filter((f) => f.clock)
+      // Still ahead first (soonest first), then the ones already closed.
+      .sort((a, b) =>
+        a.clock!.past !== b.clock!.past
+          ? Number(a.clock!.past) - Number(b.clock!.past)
+          : a.clock!.dueAt < b.clock!.dueAt
+            ? -1
+            : 1,
+      )
+      .slice(0, 8)
+      .map((f) => `${f.label}: ${f.clock!.timeLeft} (${f.clock!.utc})`);
     return {
-      saved: saved.map(toFactOut),
+      saved: out,
       rejected,
       duplicates,
-      message: _receipt.summary,
+      message: dated.length
+        ? `${_receipt.summary} Deadlines, computed in code (quote as is, do no time math): ${dated.join("; ")}.`
+        : _receipt.summary,
       _receipt,
     };
   },

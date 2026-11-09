@@ -4,6 +4,7 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
+import { resolveClockViewer, withClock } from "../server/lib/rulebook/clock.js";
 import {
   changeOut,
   factOut,
@@ -15,7 +16,7 @@ import { splitParagraphs } from "../server/lib/rulebook/text.js";
 
 export default defineAction({
   description:
-    "Get one rulebook with its sources (no page text; archivedAt is set when a source shows an Internet Archive copy instead of today's page), every fact (deadlines and requirements with quote verification and review status), and the 10 most recent detected changes. Use read-source for page text.",
+    "Get one rulebook with its sources (no page text; archivedAt is set when a source shows an Internet Archive copy instead of today's page), every fact (deadlines and requirements with quote verification and review status; dated facts carry a clock with time left computed in code, to quote as is), and the 10 most recent detected changes. Use read-source for page text.",
   schema: z.object({
     id: z.string().describe("Rulebook id from list-rulebooks"),
   }),
@@ -38,8 +39,10 @@ export default defineAction({
     }),
     label: "Open rulebook",
   }),
-  run: async ({ id }) => {
+  run: async ({ id }, ctx) => {
     const rulebook = await requireRulebook(id, "viewer");
+    const viewer = await resolveClockViewer(ctx?.userEmail);
+    const now = Date.now();
     const db = getDb();
     const srcRows = await db
       .select()
@@ -99,7 +102,7 @@ export default defineAction({
         ).length,
         archivedAt: snaps.find((x) => x.id === s.currentSnapshotId)?.archivedAt ?? null,
       })),
-      facts: factRows.map(toFactOut),
+      facts: factRows.map((f) => withClock(toFactOut(f), viewer, now)),
       changes: changeRows.map((c) => ({
         id: c.id,
         sourceId: c.sourceId,

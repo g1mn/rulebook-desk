@@ -8,6 +8,21 @@ export const factKind = z
     'Fact kind: "deadline" (a dated cutoff), "submission" (what to hand in), "requirement" (a rule the entry must meet), "eligibility" (who may enter), "judging" (criteria/weights), "prize", or "other"',
   );
 
+/** Deadline times computed in code (shared/deadline-clock.ts), the strings the screen shows. */
+export const clockOut = z
+  .object({
+    dueAt: z.string(),
+    utc: z.string(),
+    yourTime: z.string(),
+    pageTime: z.string().nullable(),
+    timeLeft: z.string(),
+    past: z.boolean(),
+    minutesLeft: z.number(),
+  })
+  .describe(
+    "Computed in code for the person's time zone and language, as the screen shows it. Quote timeLeft, yourTime, pageTime and utc exactly; never do date or time arithmetic yourself.",
+  );
+
 export const factOut = z.object({
   id: z.string(),
   rulebookId: z.string(),
@@ -27,6 +42,8 @@ export const factOut = z.object({
   createdBy: z.string(),
   updatedBy: z.string(),
   updatedAt: z.string(),
+  /** Set on dated facts: time left and the deadline in each zone. */
+  clock: clockOut.nullable().optional(),
 });
 export type FactOut = z.infer<typeof factOut>;
 

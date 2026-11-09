@@ -5,10 +5,12 @@ import { desc, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
+import { clockFor, resolveClockViewer } from "../server/lib/rulebook/clock.js";
+import { clockOut } from "../server/lib/rulebook/schemas.js";
 
 export default defineAction({
   description:
-    "List the rulebooks (contests, grants, programs) the user tracks, with fact counts by status, the next upcoming deadline (UTC ISO), and when sources were last checked.",
+    "List the rulebooks (contests, grants, programs) the user tracks, with fact counts by status, the next upcoming deadline (UTC ISO, plus a clock with time left computed in code, to quote as is), and when sources were last checked.",
   schema: z.object({}),
   outputSchema: z.object({
     rulebooks: z.array(
@@ -33,6 +35,7 @@ export default defineAction({
             dueAt: z.string(),
             dueTimeZone: z.string().nullable(),
             status: z.string(),
+            clock: clockOut,
           })
           .nullable(),
         requirementsDone: z.number(),
@@ -50,8 +53,9 @@ export default defineAction({
     url: buildDeepLink({ view: "desk", to: "/desk" }),
     label: "Open Rulebook Desk",
   }),
-  run: async () => {
+  run: async (_args, ctx) => {
     const db = getDb();
+    const viewer = await resolveClockViewer(ctx?.userEmail);
     const { rulebooks, rulebookShares, sources, facts, changes } = schema;
     const books = await db
       .select({
@@ -95,7 +99,8 @@ export default defineAction({
       .where(inArray(changes.rulebookId, ids))
       .orderBy(desc(changes.detectedAt))
       .limit(1000);
-    const now = new Date().toISOString();
+    const nowMs = Date.now();
+    const now = new Date(nowMs).toISOString();
     return {
       rulebooks: books.map((b) => {
         const s = srcRows.filter((r) => r.rulebookId === b.id);
@@ -137,6 +142,7 @@ export default defineAction({
                 dueAt: upcoming.dueAt!,
                 dueTimeZone: upcoming.dueTimeZone,
                 status: upcoming.status,
+                clock: clockFor(upcoming, viewer, nowMs)!,
               }
             : null,
           requirementsDone: reqs.filter((r) => r.done).length,
@@ -147,7 +153,7 @@ export default defineAction({
               (r) =>
                 r.dueAt &&
                 r.status !== "rejected" &&
-                r.dueAt >= new Date(Date.now() - 86_400_000).toISOString(),
+                r.dueAt >= new Date(nowMs - 86_400_000).toISOString(),
             )
             .sort((x, y) => (x.dueAt! < y.dueAt! ? -1 : 1))
             .slice(0, 12)

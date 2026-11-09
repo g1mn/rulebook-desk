@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
+import { resolveClockViewer, withClock } from "../server/lib/rulebook/clock.js";
 import { factKind, factOut, toFactOut } from "../server/lib/rulebook/schemas.js";
 import {
   checkQuote,
@@ -155,7 +156,8 @@ export default defineAction({
     if (status !== fact.status) patch.status = status;
     if (quoteStatus !== "verified" && status === "approved") patch.status = "proposed";
 
-    if (!Object.keys(patch).length) return toFactOut(fact);
+    const viewer = await resolveClockViewer(ctx?.userEmail);
+    if (!Object.keys(patch).length) return withClock(toFactOut(fact), viewer);
     patch.updatedBy = editor;
     patch.updatedAt = new Date().toISOString();
     const [saved] = await db
@@ -168,6 +170,6 @@ export default defineAction({
       .set({ updatedAt: patch.updatedAt })
       .where(eq(schema.rulebooks.id, fact.rulebookId));
     if (!saved) fail("Fact not found.", { errorCode: "not_found", statusCode: 404 });
-    return toFactOut(saved);
+    return withClock(toFactOut(saved), viewer);
   },
 });

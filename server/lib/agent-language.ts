@@ -51,29 +51,41 @@ Action names, ids, URLs, dueLocal, timeZone, kind and status values stay exactly
 </reply-language>`;
 }
 
-function acceptLanguageOf(event: unknown): string | null {
+export function acceptLanguageOf(event: unknown): string | null {
+  return headerOf(event, "accept-language");
+}
+
+/** A request header from an h3 event (web Request or Node request). */
+export function headerOf(event: unknown, name: string): string | null {
   const e = event as {
     req?: { headers?: { get?: (name: string) => string | null } };
     node?: { req?: { headers?: Record<string, string | string[] | undefined> } };
   } | null;
-  const fromRequest = e?.req?.headers?.get?.("accept-language");
+  const fromRequest = e?.req?.headers?.get?.(name);
   if (fromRequest) return fromRequest;
-  const raw = e?.node?.req?.headers?.["accept-language"];
+  const raw = e?.node?.req?.headers?.[name];
   return Array.isArray(raw) ? (raw[0] ?? null) : (raw ?? null);
 }
 
-/** extraContext hook for the agent chat plugin. Never throws. */
-export async function agentLanguageContext(event: unknown, owner: string): Promise<string> {
+/** The language the person reads the app in, from their setting, the screen, then the request. */
+export async function replyLocaleFor(
+  owner: string | undefined,
+  acceptLanguage: string | null = null,
+): Promise<AppLocale> {
   const [setting, screen] = await Promise.all([
     owner
       ? getUserSetting(owner, "localization").catch(() => null)
       : Promise.resolve(null),
     readAppState("localization").catch(() => null),
   ]);
-  const locale = pickReplyLocale({
+  return pickReplyLocale({
     setting: setting?.locale,
     screen: screen?.locale,
-    acceptLanguage: acceptLanguageOf(event),
+    acceptLanguage,
   });
-  return replyLanguageInstruction(locale);
+}
+
+/** extraContext hook for the agent chat plugin. Never throws. */
+export async function agentLanguageContext(event: unknown, owner: string): Promise<string> {
+  return replyLanguageInstruction(await replyLocaleFor(owner, acceptLanguageOf(event)));
 }
