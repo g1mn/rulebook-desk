@@ -65,7 +65,20 @@ export function viewerZone(timeZone: string | null | undefined): string {
   return zone && isValidTimeZone(zone) ? zone : "UTC";
 }
 
-/** Language from the person's setting or screen; zone from the browser header. Never throws. */
+/** The browser zone the screen last reported (navigation app state). Chat
+ *  requests carry no x-user-timezone header, so without this the agent's
+ *  "your time" fell back to UTC. */
+async function screenTimeZone(): Promise<string | undefined> {
+  try {
+    const nav = (await readAppState("navigation")) as { timeZone?: unknown } | null;
+    return typeof nav?.timeZone === "string" ? nav.timeZone : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Language from the person's setting or screen; zone from the browser header,
+ *  else from the screen's navigation state. Never throws. */
 export async function resolveClockViewer(
   owner: string | undefined,
   overrides: {
@@ -83,7 +96,8 @@ export async function resolveClockViewer(
   } catch {
     header = undefined;
   }
-  return { locale, timeZone: viewerZone(overrides.timeZone ?? header) };
+  const zone = overrides.timeZone?.trim() || header?.trim() || (await screenTimeZone());
+  return { locale, timeZone: viewerZone(zone) };
 }
 
 export function clockFor(

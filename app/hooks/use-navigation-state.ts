@@ -20,6 +20,17 @@ export interface NavigationState {
   threadId?: string;
   rulebookId?: string;
   factId?: string;
+  /** The browser's IANA zone. Chat requests carry no time zone header, so the
+   *  server's deadline clock reads the person's zone from here. */
+  timeZone?: string;
+}
+
+function browserTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function useNavigationState() {
@@ -28,8 +39,10 @@ export function useNavigationState() {
     requestSource: TAB_ID,
     getNavigationState: ({ pathname, searchParams }) => {
       const state = navigationStateForPath(pathname);
+      const timeZone = browserTimeZone();
+      const withZone = timeZone ? { ...state, timeZone } : state;
       const factId = searchParams.get("fact");
-      return factId && state.rulebookId ? { ...state, factId } : state;
+      return factId && state.rulebookId ? { ...withZone, factId } : withZone;
     },
     getCommandPath: commandPathForNavigation,
   });

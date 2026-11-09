@@ -1,3 +1,4 @@
+import { deleteAppState, writeAppState } from "@agent-native/core/application-state";
 import { runWithRequestContext } from "@agent-native/core/server";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -203,6 +204,24 @@ describe("agent context and action outputs carry the code-computed clock", () =>
 
     const ko = await asOwner(() => deadlineClockContext(seoul("ko-KR"), OWNER, NOW));
     expect(ko).toContain("1일 2시간 남음");
+  });
+
+  it("a chat request has no time zone header: the person's zone comes from the screen's navigation state", async () => {
+    // v2.2 demo recording: the Ask answer said "your time: Tue, Nov 10, 2026, 7:59 AM UTC" for a person in Seoul
+    const chat = { req: { headers: new Headers({ "accept-language": "en-US" }) } };
+    const asChat = async <T>(fn: () => T | Promise<T>): Promise<T> =>
+      await runWithRequestContext({ userEmail: OWNER }, async () => await fn());
+    expect(await asChat(() => deadlineClockContext(chat, OWNER, NOW))).toContain("zone UTC)");
+    await asChat(() =>
+      writeAppState("navigation", { view: "rulebook", rulebookId: RULEBOOK, timeZone: "Asia/Seoul" }),
+    );
+    try {
+      const text = await asChat(() => deadlineClockContext(chat, OWNER, NOW));
+      expect(text).toContain("(the person's time: Mon, Nov 9, 2026, 2:37 PM Seoul time, zone Asia/Seoul)");
+      expect(text).toContain("1d 2h left | your time Tue, Nov 10, 2026, 4:59 PM Seoul time");
+    } finally {
+      await asChat(() => deleteAppState("navigation"));
+    }
   });
 
   it("get-rulebook, list-rulebooks and deadline-clock return the same clock", async () => {
