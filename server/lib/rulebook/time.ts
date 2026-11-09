@@ -5,6 +5,8 @@
  * returns "2026-11-10T07:59:00.000Z".
  */
 
+import { isDateOnly as dateOnlyLocal } from "../../../shared/deadline-clock.js";
+
 const LOCAL_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
 
 export function isValidTimeZone(timeZone: string): boolean {
@@ -114,12 +116,9 @@ const MONTHS = [
   ["december", "dec"],
 ];
 
-/**
- * Does the quote actually state this date (and the hour, when the quote has
- * any clock time)? Guards against a verified quote paired with a misread date.
- */
+/** "YYYY-MM-DD" with no time: the page gave a date only (same test as the screen's). */
 export function isDateOnly(dueLocal: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(dueLocal.trim());
+  return dateOnlyLocal(dueLocal);
 }
 
 /** UTC instant for a due value; a date with no time counts from the start of that day. */
@@ -145,6 +144,10 @@ export function yearForUndatedDay(month: number, day: number, capturedAt: string
   return null;
 }
 
+/**
+ * Does the quote actually state this date (and the hour, when the quote has
+ * any clock time)? Guards against a verified quote paired with a misread date.
+ */
 export function dateInQuote(
   dueLocal: string,
   quote: string,

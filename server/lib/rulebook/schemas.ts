@@ -17,10 +17,12 @@ export const clockOut = z
     pageTime: z.string().nullable(),
     timeLeft: z.string(),
     past: z.boolean(),
-    minutesLeft: z.number(),
+    minutesLeft: z.number().nullable(),
+    dateOnly: z.boolean(),
+    daysLeft: z.number().nullable(),
   })
   .describe(
-    "Computed in code for the person's time zone and language, as the screen shows it. Quote timeLeft, yourTime, pageTime and utc exactly; never do date or time arithmetic yourself.",
+    "Computed in code for the person's time zone and language, as the screen shows it. Quote timeLeft, yourTime, pageTime and utc exactly; never do date or time arithmetic yourself. dateOnly: the page gave a date and no time, so dueAt is that date (YYYY-MM-DD), timeLeft counts whole days, minutesLeft is null and no time of day may be stated for it.",
   );
 
 export const factOut = z.object({
@@ -32,7 +34,12 @@ export const factOut = z.object({
   detail: z.string().nullable(),
   dueLocal: z.string().nullable(),
   dueTimeZone: z.string().nullable(),
-  dueAt: z.string().nullable(),
+  dueAt: z
+    .string()
+    .nullable()
+    .describe(
+      "UTC instant for sorting. When dueLocal is a date with no time, this is the start of that day in the page's zone, not a time the page gave: quote clock instead.",
+    ),
   quote: z.string().nullable(),
   quoteStatus: z.enum(["verified", "unverified", "none"]),
   quoteParagraph: z.number().nullable(),

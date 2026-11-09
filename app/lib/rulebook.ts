@@ -2,7 +2,17 @@ import type { Translate } from "../../shared/deadline-clock";
 
 // Countdown and zone formatting live in shared/ so the actions and the agent's
 // context compute the same strings the screen shows.
-export { countdown, deadlineClock, formatInZone, utcText } from "../../shared/deadline-clock";
+export {
+  countdown,
+  dateOnlyText,
+  deadlineClock,
+  factCountdown,
+  formatDate,
+  formatInZone,
+  isAhead,
+  isDateOnly,
+  utcText,
+} from "../../shared/deadline-clock";
 export type { DeadlineClock, Translate } from "../../shared/deadline-clock";
 
 export const KIND_ORDER = [

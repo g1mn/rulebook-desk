@@ -101,7 +101,7 @@ export async function resolveClockViewer(
 }
 
 export function clockFor(
-  fact: { dueAt: string | null; dueTimeZone: string | null },
+  fact: { dueAt: string | null; dueLocal: string | null; dueTimeZone: string | null },
   viewer: ClockViewer,
   now = Date.now(),
 ): DeadlineClock | null {
@@ -111,6 +111,8 @@ export function clockFor(
     locale: viewer.locale,
     viewerTimeZone: viewer.timeZone,
     pageTimeZone: fact.dueTimeZone,
+    // "YYYY-MM-DD": the page gave no time, so the clock gives none either.
+    dueLocal: fact.dueLocal,
     now,
   });
 }
@@ -173,6 +175,7 @@ export async function upcomingDeadlines(
       kind: facts.kind,
       status: facts.status,
       dueAt: facts.dueAt,
+      dueLocal: facts.dueLocal,
       dueTimeZone: facts.dueTimeZone,
     })
     .from(facts)
@@ -203,7 +206,7 @@ export async function upcomingDeadlines(
 }
 
 export const CLOCK_RULE =
-  'Quote these strings exactly. Do no date or time arithmetic yourself: no "in about N hours", no "today" or "tomorrow" you worked out, no zone conversion. For a fresh value or a deadline not listed here, call deadline-clock.';
+  'Quote these strings exactly. Do no date or time arithmetic yourself: no "in about N hours", no "today" or "tomorrow" you worked out, no zone conversion. A deadline marked "date only" has no time on the page: give its date, never a time of day or an hour count for it. For a fresh value or a deadline not listed here, call deadline-clock.';
 
 /** The <deadline-clock> block added to the agent's context on every request. */
 export function deadlineClockBlock(input: {
@@ -226,6 +229,13 @@ export function deadlineClockBlock(input: {
     for (const d of input.deadlines) {
       const c = d.clock;
       const where = input.rulebook ? "" : ` [${d.rulebookName}]`;
+      if (c.dateOnly) {
+        // No time on the page: no "your time", no UTC instant.
+        lines.push(
+          `- ${d.label}${where}: ${c.timeLeft} | date only, page says ${c.pageTime} (factId ${d.factId}, ${d.status})`,
+        );
+        continue;
+      }
       const page = c.pageTime ? ` | page says ${c.pageTime}` : "";
       lines.push(
         `- ${d.label}${where}: ${c.timeLeft} | your time ${c.yourTime}${page} | ${c.utc} (factId ${d.factId}, ${d.status})`,
@@ -262,7 +272,9 @@ export async function deadlineClockContext(
 }
 
 /** A fact as returned by an action, with its code-computed clock when it has a deadline. */
-export function withClock<T extends { dueAt: string | null; dueTimeZone: string | null }>(
+export function withClock<
+  T extends { dueAt: string | null; dueLocal: string | null; dueTimeZone: string | null },
+>(
   fact: T,
   viewer: ClockViewer,
   now = Date.now(),
