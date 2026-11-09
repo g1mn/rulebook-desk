@@ -9,6 +9,7 @@ import {
   pickReplyLocale,
   replyLanguageInstruction,
 } from "../../server/lib/agent-language";
+import { deskTimeT } from "../../server/lib/rulebook/clock";
 import { AGENT_LANGUAGE_NAMES, APP_LOCALE_METADATA, APP_LOCALES } from "../../shared/locales";
 import {
   KIND_ORDER,
@@ -245,6 +246,23 @@ describe("dates, times and counts per language", () => {
     expect(countdown(closed, tr("fr-FR"), now).text).toBe("clos il y a 2 h 05");
     expect(countdown(closed, tr("de-DE"), now).text).toBe("vor 2 Std. 05 Min. abgelaufen");
     expect(countdown(closed, tr("vi-VN"), now).text).toBe("đã đóng 2 giờ 5 phút trước");
+  });
+
+  it("the agent's countdown strings are the screen's, in every language", () => {
+    // Actions and the agent's <deadline-clock> context render time left on the
+    // server (deskTimeT); it must read exactly like the screen (i18next).
+    const at = [
+      "2026-11-08T00:00:00Z", // days
+      "2026-11-10T05:00:00Z", // hours
+      "2026-11-10T07:51:00Z", // minutes
+      "2026-11-10T10:04:00Z", // closed
+      "2026-11-14T09:00:00Z", // closed days ago
+    ].map((x) => Date.parse(x));
+    for (const locale of APP_LOCALES)
+      for (const when of at)
+        expect(countdown(due, deskTimeT(locale), when).text, `${locale} ${when}`).toBe(
+          countdown(due, tr(locale), when).text,
+        );
   });
 
   it("relative time", () => {
