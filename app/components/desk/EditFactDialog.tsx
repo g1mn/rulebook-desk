@@ -111,7 +111,7 @@ export function EditFactDialog({
           <DialogHeader>
             <DialogTitle>{creating ? t("desk.edit.addTitle") : t("desk.edit.editTitle")}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
+          <div className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <div className="space-y-1.5">
               <Label htmlFor="f-label">{t("desk.edit.label")}</Label>
               <Input id="f-label" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={140} />
@@ -122,7 +122,7 @@ export function EditFactDialog({
                 id="f-kind"
                 value={kind}
                 onChange={(e) => setKind(e.target.value as FactKind)}
-                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                className="h-9 w-full min-w-[10rem] rounded-md border border-input bg-background px-2 text-sm"
               >
                 {KIND_ORDER.map((k) => (
                   <option key={k} value={k}>
@@ -150,7 +150,7 @@ export function EditFactDialog({
               {t("desk.edit.quoteHelp")}
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid items-end gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="f-due">{t("desk.edit.due")}</Label>
               <Input id="f-due" type="datetime-local" value={dueLocal} onChange={(e) => setDueLocal(e.target.value.slice(0, 16))} />

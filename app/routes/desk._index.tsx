@@ -238,8 +238,12 @@ export default function DeskIndex() {
                     >
                       {c.text}
                     </div>
-                    <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {next.label} · {formatInZone(next.dueAt, tz, locale)}
+                    <div className="mt-0.5 truncate text-xs text-muted-foreground">{next.label}</div>
+                    <div
+                      className="truncate text-xs tabular-nums text-muted-foreground"
+                      title={formatInZone(next.dueAt, tz, locale)}
+                    >
+                      {formatInZone(next.dueAt, tz, locale)}
                     </div>
                   </div>
                 ) : (
@@ -254,7 +258,7 @@ export default function DeskIndex() {
                   {b.counts.stale ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-[var(--desk-stale-bg)] px-2 py-0.5 font-medium text-[var(--desk-stale)]">
                       <IconAlertTriangle className="size-3" />
-                      {t("desk.index.staleCount", { n: b.counts.stale })}
+                      {t("desk.index.staleCount", { count: b.counts.stale })}
                     </span>
                   ) : null}
                   {b.counts.proposed ? (
@@ -263,11 +267,11 @@ export default function DeskIndex() {
                     </span>
                   ) : null}
                   <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
-                    {t("desk.index.approvedCount", { n: b.counts.approved })}
+                    {t("desk.index.approvedCount", { count: b.counts.approved })}
                   </span>
                   {b.sourceErrors ? (
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[var(--desk-stale)]">
-                      {t("desk.index.pageErrors", { n: b.sourceErrors })}
+                      {t("desk.index.pageErrors", { count: b.sourceErrors })}
                     </span>
                   ) : null}
                 </div>

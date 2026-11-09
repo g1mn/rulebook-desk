@@ -41,6 +41,8 @@ export function AgentInspector({
       onFullscreenRequest={openAskAgentFullscreen}
       emptyStateText={t("desk.agent.emptyState")}
       agentPageHref="/settings/agent"
+      // the framework's context suggestions are English-only and push these out
+      dynamicSuggestions={false}
       suggestions={[
         t("desk.agent.suggestLeft"),
         t("desk.agent.suggestStale"),

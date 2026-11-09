@@ -85,7 +85,7 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
           style={{ left: `${todayX}%` }}
           aria-hidden
         >
-          <span className="absolute -top-0.5 left-1 text-[10px] font-medium uppercase tracking-wide text-[var(--desk-accent)]">
+          <span className="absolute -top-0.5 left-1 whitespace-nowrap text-[10px] font-medium uppercase tracking-wide text-[var(--desk-accent)]">
             {t("desk.timeline.now")}
           </span>
         </div>
@@ -134,10 +134,14 @@ export function DeadlineTimeline({ items }: { items: TimelineItem[] }) {
           />
         ))}
         <div className="absolute inset-x-0 bottom-0 h-5">
-          {ticks.map((tick) => (
+          {ticks.map((tick, i) => (
             <span
               key={tick}
-              className="absolute -translate-x-1/2 text-[10px] tabular-nums text-muted-foreground"
+              className={cn(
+                "absolute whitespace-nowrap text-[10px] tabular-nums text-muted-foreground",
+                // first and last labels stay inside the box (long dates such as "8 de nov." or "11月8日")
+                i === 0 ? "translate-x-0" : i === ticks.length - 1 ? "-translate-x-full" : "-translate-x-1/2",
+              )}
               style={{ left: `${((tick - start) / (end - start)) * 100}%` }}
             >
               {shortDate(new Date(tick).toISOString(), undefined, locale)}

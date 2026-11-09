@@ -434,7 +434,7 @@ function RulebookView({ rulebookId }: { rulebookId: string }) {
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {t("desk.rulebook.paragraphsAdded", { count: latest.added.length })} ·{" "}
-                  {t("desk.rulebook.paragraphsRemoved", { n: latest.removed.length })}
+                  {t("desk.rulebook.paragraphsRemoved", { count: latest.removed.length })}
                   {latestAffected.length
                     ? ` · ${t("desk.rulebook.factsNowStale", { count: latestAffected.length })}`
                     : ""}

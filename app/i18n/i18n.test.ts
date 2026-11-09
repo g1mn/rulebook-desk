@@ -310,6 +310,15 @@ describe("dates, times and counts per language", () => {
     // Vietnamese and Chinese have one form for every count.
     expect(saved("vi-VN", 1)).toBe("Đã lưu 1 mục.");
     expect(saved("zh-TW", 1)).toBe("已儲存 1 個條目。");
+    // Card badges: "1 aprovado", not "1 aprovados".
+    const approved = (locale: string, count: number) => tr(locale)("desk.index.approvedCount", { count });
+    expect(approved("pt-BR", 1)).toBe("1 aprovado");
+    expect(approved("pt-BR", 2)).toBe("2 aprovados");
+    expect(approved("fr-FR", 0)).toBe("0 approuvé");
+    expect(approved("es-ES", 1)).toBe("1 aprobado");
+    expect(approved("ko-KR", 3)).toBe("승인 3");
+    expect(tr("en-US")("desk.index.pageErrors", { count: 2 })).toBe("2 page errors");
+    expect(tr("fr-FR")("desk.rulebook.paragraphsRemoved", { count: 1 })).toBe("1 supprimé");
   });
 
   it("the editor's name inside a sentence follows each language", () => {
