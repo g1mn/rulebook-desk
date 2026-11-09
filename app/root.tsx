@@ -34,7 +34,7 @@ import {
 } from "@/lib/chat-paths";
 import { TAB_ID } from "@/lib/tab-id";
 
-import { APP_LOCALES } from "../shared/locales";
+import { APP_LOCALE_METADATA, APP_LOCALES } from "../shared/locales";
 
 import { i18nCatalog } from "./i18n";
 
@@ -53,7 +53,10 @@ export const links: LinksFunction = () => [
 ];
 
 const THEME_INIT_SCRIPT = getThemeInitScript();
-const LOCALE_INIT_SCRIPT = getLocaleInitScript({ supportedLocales: APP_LOCALES });
+const LOCALE_INIT_SCRIPT = getLocaleInitScript({
+  supportedLocales: APP_LOCALES,
+  localeMetadata: APP_LOCALE_METADATA,
+});
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
