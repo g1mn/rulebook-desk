@@ -6,8 +6,8 @@ Built with [Agent-Native](https://www.agent-native.com) for the Builder.io Agent
 
 ## Demo
 
-- **Video (Clips, 1:51):** https://clips.agent-native.com/share/amNUhOQKD3zO
-  The real app driven end to end in a browser, with captions: a new rules page extracted by the agent, a deadline approved beside its highlighted sentence, a made-up rule rejected, the sidebar agent answering "What's still left before I submit?", and the Dec 12, 2025 Internet Archive copy of the Kiroween rules turning an approved fact stale, then repaired by the on-change automation with no click.
+- **Video (Clips, 1:58, English narration and captions):** https://clips.agent-native.com/share/foK91MDbUBFR
+  The real app driven end to end in a browser (recorded from the running app, no mock screens). It opens on a real rule change: between two Internet Archive copies of the Kiroween 2025 rules, the end of the judging period moved from Jan 12 to Jan 26. Then: a new rules page extracted by the sidebar agent, a deadline approved beside its highlighted sentence with your time, the page's time and UTC, a made-up rule rejected because its quote is not on the page, the sidebar agent listing what is left to submit with the quote for each item, the Dec 12, 2025 archive copy turning an approved fact stale and the on-change automation proposing the new date with no click, one `defineAction` called from a button, the sidebar agent and a daily automation, and the interface switched to Korean, Japanese, Simplified Chinese, Spanish and German. Footage plays at 0.9 to 2.4× speed; the two long agent waits are time-lapsed and marked on screen.
 
 ## The problem
 
@@ -23,7 +23,7 @@ Rules pages are long, they change, and the dates are written in someone else's t
 | **Drift watch** | "Check pages now" (and an optional daily automation) re-fetches every page, stores a snapshot when the text changed, shows the edit word by word, and marks a fact *stale* when its quoted sentence is gone, with "page now says …" beside it. Counter churn ("Participants (547)" → "(2421)") is ignored; dates, amounts and team sizes never are. A framework event (`rulebook.source.changed`) lets an automation ask the agent to repair stale facts. If the sentence comes back, the fact returns to *proposed*. |
 | **Internet Archive history** | Start tracking from a Wayback Machine copy (the version you read when you entered; the daily check leaves such pinned pages alone), then load a newer copy to replay how the rules changed, or an older one to see what changed since then without touching your current facts. |
 | **One timeline** | Every tracked deadline across contests on one axis, with countdowns. Requirements become a checklist once approved. |
-| **Ten languages** | English (default), 한국어, 日本語, 简体中文, 繁體中文, Español, Français, Deutsch, Português and Tiếng Việt, chosen from the header menu and saved to your account. Dates, countdowns and plurals follow the chosen language, and the agent answers in it. Quoted rule sentences always stay exactly as written on the page. |
+| **Ten languages** | English (default), 한국어, 日本語, 简体中文, 繁體中文, Español, Français, Deutsch, Português and Tiếng Việt, chosen from the header menu and saved to your account. Dates, countdowns and plurals follow the chosen language, and the agent answers in it. Quoted rule sentences always stay exactly as written on the page. In Tiếng Việt, the framework's own chat panel and settings text stays in English (the framework ships no Vietnamese strings); the Rulebook Desk screens are translated. |
 
 ## Real runs on real pages
 
