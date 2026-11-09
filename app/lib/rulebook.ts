@@ -21,6 +21,18 @@ export function userTimeZone(): string {
 }
 
 const AOE = "AoE (UTC−12)";
+// Intl writes the -12 offset as "GMT-12" in most languages and "UTC−12" in French.
+const MINUS_12 = /(?:GMT|UTC)[-−]12(?::00)?/;
+
+/**
+ * How the place is named after the time. "shortGeneric" gives a city or
+ * country ("로스앤젤레스 시간", "hora de Los Ángeles"); Traditional Chinese and
+ * Vietnamese only get "PT" from it, so they use the longer generic name.
+ */
+function zoneNameStyle(locale: string, fixed: boolean): "short" | "shortGeneric" | "longGeneric" {
+  if (fixed) return "short";
+  return /^(zh-TW|vi)/.test(locale) ? "longGeneric" : "shortGeneric";
+}
 
 export function formatInZone(iso: string, timeZone: string, locale = "en-US"): string {
   const date = new Date(iso);
@@ -39,13 +51,13 @@ export function formatInZone(iso: string, timeZone: string, locale = "en-US"): s
     const fixed = timeZone === "UTC" || timeZone.startsWith("Etc/");
     const text = new Intl.DateTimeFormat(locale, {
       ...parts,
-      timeZoneName: fixed ? "short" : "shortGeneric",
+      timeZoneName: zoneNameStyle(locale, fixed),
     }).format(date);
-    return timeZone === "Etc/GMT+12" ? text.replace(/GMT-12(:00)?/, AOE) : text;
+    return timeZone === "Etc/GMT+12" ? text.replace(MINUS_12, AOE) : text;
   }
   const text = new Intl.DateTimeFormat("en-US", { ...parts, timeZoneName: "short" }).format(date);
   // "GMT+9" says little; name the city instead ("Seoul time").
-  if (timeZone === "Etc/GMT+12") return text.replace(/GMT-12/, AOE);
+  if (timeZone === "Etc/GMT+12") return text.replace(MINUS_12, AOE);
   if (/GMT[+-]\d/.test(text) && timeZone.includes("/") && !timeZone.startsWith("Etc/")) {
     const city = timeZone.split("/").pop()!.replace(/_/g, " ");
     return text.replace(/GMT[+-][\d:]+/, `${city} time`);
@@ -123,6 +135,13 @@ export function editorLabel(by: string, t: Translate): string {
   if (by === "person") return t("desk.editor.person");
   if (by === "automation") return t("desk.editor.automation");
   return t("desk.editor.agent");
+}
+
+/** The editor's name inside "edited by …": its own key, because casing and grammar differ per language. */
+export function editorInline(by: string, t: Translate): string {
+  if (by === "person") return t("desk.editorInline.person");
+  if (by === "automation") return t("desk.editorInline.automation");
+  return t("desk.editorInline.agent");
 }
 
 export function kindLabel(kind: string, t: Translate): string {

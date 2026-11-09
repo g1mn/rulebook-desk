@@ -1,7 +1,7 @@
 /**
  * Rulebook Desk screen text (source language). Every other locale in this
  * folder must have exactly these keys and the same {{placeholders}}.
- * Plural keys use i18next suffixes (_one/_other); CJK locales keep both.
+ * Plural keys use i18next suffixes (_one/_other); CJK and Vietnamese keep both.
  */
 const desk = {
   nav: {
@@ -40,6 +40,12 @@ const desk = {
     person: "You",
     automation: "Daily check",
     agent: "Agent",
+  },
+  // The same names inside a sentence ("edited by {{editor}}").
+  editorInline: {
+    person: "you",
+    automation: "daily check",
+    agent: "agent",
   },
   time: {
     spanDays: "{{d}}d {{h}}h",
@@ -248,6 +254,12 @@ const desk = {
 
 export default desk;
 
-/** Same keys as English, any string values. */
-type Shape<T> = { [K in keyof T]: T[K] extends string ? string : Shape<T[K]> };
+/**
+ * Same keys as English, any string values. Languages whose plural rules have
+ * a "many" form (es, fr, pt: "1 000 000 de pages") add `<key>_many` beside
+ * `_one`/`_other`; the tests check each language has exactly the forms it uses.
+ */
+type Shape<T> = { [K in keyof T]: T[K] extends string ? string : Shape<T[K]> } & {
+  [plural: `${string}_many`]: string;
+};
 export type DeskMessages = Shape<typeof desk>;

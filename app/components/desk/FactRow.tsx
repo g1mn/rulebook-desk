@@ -14,6 +14,7 @@ import { wordDiff } from "@/lib/word-diff";
 import { useDeskI18n } from "@/hooks/use-desk-i18n";
 import {
   countdown,
+  editorInline,
   editorLabel,
   formatInZone,
   localizeStaleReason,
@@ -81,7 +82,7 @@ export function FactRow({
       ? editorLabel(fact.createdBy, t)
       : t("desk.fact.editedBy", {
           creator: editorLabel(fact.createdBy, t),
-          editor: editorLabel(fact.updatedBy, t).toLowerCase(),
+          editor: editorInline(fact.updatedBy, t),
         });
 
   return (

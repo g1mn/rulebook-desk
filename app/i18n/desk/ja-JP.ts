@@ -38,6 +38,11 @@ const desk: DeskMessages = {
     automation: "毎日のチェック",
     agent: "エージェント",
   },
+  editorInline: {
+    person: "あなた",
+    automation: "毎日のチェック",
+    agent: "エージェント",
+  },
   time: {
     spanDays: "{{d}}日{{h}}時間",
     spanHours: "{{h}}時間{{m}}分",
