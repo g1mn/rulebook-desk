@@ -1,3 +1,10 @@
+import type { Translate } from "../../shared/deadline-clock";
+
+// Countdown and zone formatting live in shared/ so the actions and the agent's
+// context compute the same strings the screen shows.
+export { countdown, deadlineClock, formatInZone, utcText } from "../../shared/deadline-clock";
+export type { DeadlineClock, Translate } from "../../shared/deadline-clock";
+
 export const KIND_ORDER = [
   "deadline",
   "submission",
@@ -9,60 +16,12 @@ export const KIND_ORDER = [
 ] as const;
 export type FactKind = (typeof KIND_ORDER)[number];
 
-/** i18next-style translate function (useT() on screens, getFixedT in tests). */
-export type Translate = (key: string, options?: Record<string, unknown>) => string;
-
 export function userTimeZone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   } catch {
     return "UTC";
   }
-}
-
-const AOE = "AoE (UTC−12)";
-// Intl writes the -12 offset as "GMT-12" in most languages and "UTC−12" in French.
-const MINUS_12 = /(?:GMT|UTC)[-−]12(?::00)?/;
-
-/**
- * How the place is named after the time. "shortGeneric" gives a city or
- * country ("로스앤젤레스 시간", "hora de Los Ángeles"); Traditional Chinese and
- * Vietnamese only get "PT" from it, so they use the longer generic name.
- */
-function zoneNameStyle(locale: string, fixed: boolean): "short" | "shortGeneric" | "longGeneric" {
-  if (fixed) return "short";
-  return /^(zh-TW|vi)/.test(locale) ? "longGeneric" : "shortGeneric";
-}
-
-export function formatInZone(iso: string, timeZone: string, locale = "en-US"): string {
-  const date = new Date(iso);
-  const parts = {
-    timeZone,
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  } as const;
-  if (locale !== "en-US") {
-    // Other languages: Intl names the place in that language ("로스앤젤레스 시간",
-    // "ロサンゼルス時間", "洛杉矶时间"); UTC and fixed offsets keep the short form.
-    const fixed = timeZone === "UTC" || timeZone.startsWith("Etc/");
-    const text = new Intl.DateTimeFormat(locale, {
-      ...parts,
-      timeZoneName: zoneNameStyle(locale, fixed),
-    }).format(date);
-    return timeZone === "Etc/GMT+12" ? text.replace(MINUS_12, AOE) : text;
-  }
-  const text = new Intl.DateTimeFormat("en-US", { ...parts, timeZoneName: "short" }).format(date);
-  // "GMT+9" says little; name the city instead ("Seoul time").
-  if (timeZone === "Etc/GMT+12") return text.replace(MINUS_12, AOE);
-  if (/GMT[+-]\d/.test(text) && timeZone.includes("/") && !timeZone.startsWith("Etc/")) {
-    const city = timeZone.split("/").pop()!.replace(/_/g, " ");
-    return text.replace(/GMT[+-][\d:]+/, `${city} time`);
-  }
-  return text;
 }
 
 export function shortDate(iso: string, timeZone?: string, locale = "en-US"): string {
@@ -81,35 +40,6 @@ export function zoneAbbrev(iso: string, timeZone: string): string {
     .formatToParts(new Date(iso))
     .find((p) => p.type === "timeZoneName");
   return part?.value ?? timeZone;
-}
-
-/** "2d 14h left", "3h 05m left", "closed 4d ago" (in the screen's language). */
-export function countdown(
-  iso: string,
-  t: Translate,
-  now = Date.now(),
-): {
-  text: string;
-  past: boolean;
-  urgent: boolean;
-} {
-  const diff = new Date(iso).getTime() - now;
-  const past = diff < 0;
-  const abs = Math.abs(diff);
-  const d = Math.floor(abs / 86_400_000);
-  const h = Math.floor((abs % 86_400_000) / 3_600_000);
-  const m = Math.floor((abs % 3_600_000) / 60_000);
-  const span =
-    d > 0
-      ? t("desk.time.spanDays", { d, h })
-      : h > 0
-        ? t("desk.time.spanHours", { h, m, mm: String(m).padStart(2, "0") })
-        : t("desk.time.spanMinutes", { m });
-  return {
-    text: t(past ? "desk.time.closed" : "desk.time.left", { span }),
-    past,
-    urgent: !past && diff < 3 * 86_400_000,
-  };
 }
 
 export function relativeTime(iso: string | null, t: Translate, now = Date.now()): string {

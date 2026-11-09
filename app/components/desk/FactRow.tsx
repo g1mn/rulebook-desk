@@ -19,6 +19,7 @@ import {
   formatInZone,
   localizeStaleReason,
   statusLabel,
+  utcText,
   zoneAbbrev,
 } from "@/lib/rulebook";
 import { cn } from "@/lib/utils";
@@ -175,7 +176,7 @@ export function FactRow({
               </span>
             ) : null}
             <span className="tabular-nums text-muted-foreground">
-              {new Date(fact.dueAt).toISOString().slice(0, 16).replace("T", " ")} UTC
+              {utcText(fact.dueAt)}
             </span>
           </div>
         ) : null}
