@@ -329,3 +329,14 @@
     100% { background-color: transparent; }
   }
 }
+
+/* Line breaking per screen language: Korean keeps words whole; Japanese and
+   Chinese never start a line with ー, 、 or 。 */
+:lang(ko) {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+:lang(ja),
+:lang(zh) {
+  line-break: strict;
+}
