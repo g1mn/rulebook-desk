@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
 import { resolveClockViewer, withClock } from "../server/lib/rulebook/clock.js";
+import { countsText, factCounts } from "../server/lib/rulebook/counts.js";
 import {
   factKind,
   factOut,
@@ -24,6 +25,12 @@ import {
   dueToUtc,
   resolveTimeZone,
 } from "../server/lib/rulebook/time.js";
+
+const countsOut = z.object({
+  total: z.number(),
+  byKind: z.record(z.string(), z.number()),
+  byStatus: z.record(z.string(), z.number()),
+});
 
 const factIn = z.object({
   kind: factKind,
@@ -65,7 +72,7 @@ const factIn = z.object({
 
 export default defineAction({
   description:
-    "Save deadlines and requirements for a rulebook in one batch. Each fact needs a verbatim quote from read-source; quotes not found on any fetched page are rejected (not saved) and listed in `rejected`, and a deadline is rejected unless its quote states that date (and hour, if the quote has a time); when the quote gives no year, the year must be the one the page meant when it was captured. Deadline times are converted to UTC in code from dueLocal + timeZone, so never convert times yourself; each saved deadline comes back with a clock (timeLeft, yourTime, pageTime, utc) to quote as is; a date-only deadline (dueLocal with no time) has clock.dateOnly true and must be stated as a date with no time of day. New facts start as proposed for human review.",
+    "Save deadlines and requirements for a rulebook in one batch. Each fact needs a verbatim quote from read-source; quotes not found on any fetched page are rejected (not saved) and listed in `rejected`, and a deadline is rejected unless its quote states that date (and hour, if the quote has a time); when the quote gives no year, the year must be the one the page meant when it was captured. Deadline times are converted to UTC in code from dueLocal + timeZone, so never convert times yourself; each saved deadline comes back with a clock (timeLeft, yourTime, pageTime, utc) to quote as is; a date-only deadline (dueLocal with no time) has clock.dateOnly true and must be stated as a date with no time of day. New facts start as proposed for human review. The reply carries counts (this call and the whole rulebook, per kind and status) computed in code: quote them, never count facts yourself.",
   schema: z.object({
     rulebookId: z.string().describe("Rulebook id"),
     facts: z.array(factIn).min(1).max(40).describe("Facts to save"),
@@ -76,6 +83,11 @@ export default defineAction({
       z.object({ index: z.number(), label: z.string(), reason: z.string() }),
     ),
     duplicates: z.array(z.object({ index: z.number(), existingId: z.string() })),
+    counts: z
+      .object({ saved: countsOut, rulebook: countsOut })
+      .describe(
+        "Fact counts computed in code: saved = this call, rulebook = every fact the rulebook now holds (the review table's group headers). Quote these; never count facts yourself.",
+      ),
     message: z.string(),
     _receipt: receipt,
   }),
@@ -227,13 +239,29 @@ export default defineAction({
           ? `${f.label}: ${f.clock!.timeLeft} (date only, ${f.clock!.utc})`
           : `${f.label}: ${f.clock!.timeLeft} (${f.clock!.utc})`,
       );
+    // Counts go back computed in code too (v2.3 demo: the agent's own summary
+    // said "Deadlines (7)" for a rulebook with 6), so the reply quotes them.
+    const all = await db
+      .select({ kind: schema.facts.kind, status: schema.facts.status })
+      .from(schema.facts)
+      .where(eq(schema.facts.rulebookId, rulebook.id))
+      .limit(1000);
+    const counts = { saved: factCounts(saved), rulebook: factCounts(all) };
+    const countLine = `Counts, computed in code (quote as is, never count facts yourself): this call saved ${countsText(counts.saved)}; the rulebook now holds ${countsText(counts.rulebook)}.`;
     return {
       saved: out,
       rejected,
       duplicates,
-      message: dated.length
-        ? `${_receipt.summary} Deadlines, computed in code (quote as is, do no time math): ${dated.join("; ")}.`
-        : _receipt.summary,
+      counts,
+      message: [
+        _receipt.summary,
+        dated.length
+          ? `Deadlines, computed in code (quote as is, do no time math): ${dated.join("; ")}.`
+          : "",
+        countLine,
+      ]
+        .filter(Boolean)
+        .join(" "),
       _receipt,
     };
   },

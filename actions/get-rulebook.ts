@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
 import { resolveClockViewer, withClock } from "../server/lib/rulebook/clock.js";
+import { factCounts } from "../server/lib/rulebook/counts.js";
 import {
   changeOut,
   factOut,
@@ -16,7 +17,7 @@ import { splitParagraphs } from "../server/lib/rulebook/text.js";
 
 export default defineAction({
   description:
-    "Get one rulebook with its sources (no page text; archivedAt is set when a source shows an Internet Archive copy instead of today's page), every fact (deadlines and requirements with quote verification and review status; dated facts carry a clock with time left computed in code, to quote as is), and the 10 most recent detected changes. Use read-source for page text.",
+    "Get one rulebook with its sources (no page text; archivedAt is set when a source shows an Internet Archive copy instead of today's page), every fact (deadlines and requirements with quote verification and review status; dated facts carry a clock with time left computed in code, to quote as is), fact counts per kind and status computed in code (quote them, never count yourself), and the 10 most recent detected changes. Use read-source for page text.",
   schema: z.object({
     id: z.string().describe("Rulebook id from list-rulebooks"),
   }),
@@ -27,6 +28,15 @@ export default defineAction({
     updatedAt: z.string(),
     sources: z.array(sourceOut),
     facts: z.array(factOut),
+    counts: z
+      .object({
+        total: z.number(),
+        byKind: z.record(z.string(), z.number()),
+        byStatus: z.record(z.string(), z.number()),
+      })
+      .describe(
+        "Fact counts computed in code, per kind (the review table's group headers) and per status. Quote these; never count facts yourself.",
+      ),
     changes: z.array(changeOut),
   }),
   http: { method: "GET" },
@@ -103,6 +113,7 @@ export default defineAction({
         archivedAt: snaps.find((x) => x.id === s.currentSnapshotId)?.archivedAt ?? null,
       })),
       facts: factRows.map((f) => withClock(toFactOut(f), viewer, now)),
+      counts: factCounts(factRows),
       changes: changeRows.map((c) => ({
         id: c.id,
         sourceId: c.sourceId,
