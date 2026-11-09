@@ -15,15 +15,20 @@ import {
   KIND_ORDER,
   checkSummary,
   countdown,
+  dateOnlyText,
+  deadlineClock,
   editorInline,
+  factCountdown,
   formatInZone,
   formatWayback,
   localizeStaleReason,
   relativeTime,
   saveSummary,
   shortDate,
+  utcText,
   type Translate,
 } from "../lib/rulebook";
+import { dateCountdown } from "../../shared/deadline-clock";
 
 import deDE from "./de-DE";
 import enUS from "./en-US";
@@ -263,6 +268,118 @@ describe("dates, times and counts per language", () => {
         expect(countdown(due, deskTimeT(locale), when).text, `${locale} ${when}`).toBe(
           countdown(due, tr(locale), when).text,
         );
+  });
+
+  // v2.2 demo: "October 27, 2026 : Hackathon begins" (no time on the page)
+  // showed as "page says Tue, Oct 27, 2026, 12:00 AM PDT · 4:00 PM Seoul time".
+  describe("a date-only deadline shows the page's date and no time", () => {
+    const pt = "America/Los_Angeles";
+    const at = Date.parse("2026-11-09T08:10:00Z"); // 17:10 KST, 00:10 PST
+    // Midnight PDT/PST, as stored for sorting: never shown.
+    const start = { dueAt: "2026-10-27T07:00:00.000Z", dueLocal: "2026-10-27", dueTimeZone: pt };
+    const target = { dueAt: "2026-11-13T08:00:00.000Z", dueLocal: "2026-11-13", dueTimeZone: pt };
+    const screen: Record<string, { page: string; left: string; closed: string; today: string; badge: string }> = {
+      "en-US": { page: "page says Tue, Oct 27, 2026 (no time given)", left: "4d left", closed: "closed 13d ago", today: "today", badge: "date only" },
+      "ko-KR": { page: "페이지 표기 2026년 10월 27일 (화), 시각 미기재", left: "4일 남음", closed: "13일 전 마감", today: "오늘", badge: "날짜만" },
+      "ja-JP": { page: "ページの表記 2026年10月27日(火)（時刻の記載なし）", left: "残り4日", closed: "13日前に締切", today: "今日", badge: "日付のみ" },
+      "zh-CN": { page: "页面写的是 2026年10月27日周二（未写时间）", left: "剩余4天", closed: "已于13天前截止", today: "今天", badge: "仅日期" },
+      "zh-TW": { page: "頁面寫的是 2026年10月27日週二（未寫時間）", left: "剩餘4天", closed: "已於13天前截止", today: "今天", badge: "僅日期" },
+      "es-ES": { page: "la página dice mar, 27 oct 2026 (sin hora)", left: "quedan 4 d", closed: "cerró hace 13 d", today: "hoy", badge: "solo fecha" },
+      "fr-FR": { page: "la page indique mar. 27 oct. 2026 (sans heure)", left: "encore 4 j", closed: "clos il y a 13 j", today: "aujourd’hui", badge: "date seule" },
+      "de-DE": { page: "Seite nennt Di., 27. Okt. 2026 (ohne Uhrzeit)", left: "noch 4 Tg.", closed: "vor 13 Tg. abgelaufen", today: "heute", badge: "nur Datum" },
+      "pt-BR": { page: "a página diz ter., 27 de out. de 2026 (sem horário)", left: "faltam 4 d", closed: "encerrado há 13 d", today: "hoje", badge: "só a data" },
+      "vi-VN": { page: "trang ghi Thứ 3, 27 thg 10, 2026 (không ghi giờ)", left: "còn 4 ngày", closed: "đã đóng 13 ngày trước", today: "hôm nay", badge: "chỉ có ngày" },
+    };
+    /** What the old screen showed for these rows: a clock time the page never gave. */
+    const madeUpTimes = (locale: string) => [
+      formatInZone(start.dueAt, pt, locale),
+      formatInZone(start.dueAt, "Asia/Seoul", locale),
+      formatInZone(target.dueAt, pt, locale),
+      formatInZone(target.dueAt, "Asia/Seoul", locale),
+      utcText(start.dueAt),
+      utcText(target.dueAt),
+    ];
+    const CLOCK_TIME = /\d{1,2}[:：]\d{2}|\bUTC\b/;
+
+    it("the fact row, in every language", () => {
+      for (const locale of APP_LOCALES) {
+        const t = tr(locale);
+        const want = screen[locale]!;
+        const row = {
+          page: t("desk.fact.pageSays", { time: dateOnlyText(start.dueLocal, t, locale) }),
+          left: factCountdown(target, t, at).text,
+          closed: factCountdown(start, t, at).text,
+          today: factCountdown({ ...target, dueLocal: "2026-11-09", dueAt: "2026-11-09T08:00:00.000Z" }, t, at)
+            .text,
+          badge: t("desk.time.dateOnly"),
+        };
+        expect(row, locale).toEqual(want);
+        for (const text of Object.values(row)) {
+          expect(text, locale).not.toMatch(CLOCK_TIME);
+          for (const made of madeUpTimes(locale)) expect(text, locale).not.toContain(made);
+        }
+        // The timeline chip and the desk card give the date alone.
+        expect(dateOnlyText(target.dueLocal, t, locale), locale).not.toMatch(CLOCK_TIME);
+        expect(factCountdown(target, t, at).dateOnly).toBe(true);
+      }
+    });
+
+    it("the agent's clock reads like the screen and gives no time either", () => {
+      for (const locale of APP_LOCALES) {
+        const c = deadlineClock(target.dueAt, {
+          t: deskTimeT(locale),
+          locale,
+          viewerTimeZone: "Asia/Seoul",
+          pageTimeZone: pt,
+          dueLocal: target.dueLocal,
+          now: at,
+        });
+        expect(c, locale).toMatchObject({
+          dueAt: "2026-11-13",
+          utc: "2026-11-13, no time given",
+          timeLeft: screen[locale]!.left,
+          dateOnly: true,
+          daysLeft: 4,
+          minutesLeft: null,
+          past: false,
+        });
+        expect(c.pageTime, locale).toBe(dateOnlyText(target.dueLocal, tr(locale), locale));
+        expect(c.yourTime, locale).toBe(c.pageTime);
+        for (const text of [c.utc, c.yourTime, c.pageTime!, c.timeLeft]) {
+          expect(text, locale).not.toMatch(CLOCK_TIME);
+          for (const made of madeUpTimes(locale)) expect(text, locale).not.toContain(made);
+        }
+        expect(dateCountdown(start.dueLocal, pt, deskTimeT(locale), at).text, locale).toBe(
+          screen[locale]!.closed,
+        );
+      }
+    });
+
+    it("a deadline with a time on the page reads as before", () => {
+      const timed = { dueAt: due, dueLocal: "2026-11-09T23:59", dueTimeZone: pt };
+      for (const locale of APP_LOCALES)
+        for (const when of [now, at, Date.parse("2026-11-10T10:04:00Z")]) {
+          const c = factCountdown(timed, tr(locale), when);
+          expect(c.text, locale).toBe(countdown(due, tr(locale), when).text);
+          expect(c.dateOnly).toBe(false);
+          const opts = {
+            t: deskTimeT(locale),
+            locale,
+            viewerTimeZone: "Asia/Seoul",
+            pageTimeZone: pt,
+            now: when,
+          };
+          const clock = deadlineClock(due, { ...opts, dueLocal: timed.dueLocal });
+          expect(clock, locale).toEqual(deadlineClock(due, opts));
+          expect(clock).toMatchObject({
+            yourTime: formatInZone(due, "Asia/Seoul", locale),
+            pageTime: formatInZone(due, pt, locale),
+            utc: "2026-11-10 07:59 UTC",
+            dateOnly: false,
+            daysLeft: null,
+          });
+        }
+    });
   });
 
   it("relative time", () => {

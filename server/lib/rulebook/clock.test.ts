@@ -7,7 +7,8 @@ import deadlineClockAction from "../../../actions/deadline-clock";
 import getRulebook from "../../../actions/get-rulebook";
 import listRulebooks from "../../../actions/list-rulebooks";
 import saveFacts from "../../../actions/save-facts";
-import { countdown, deadlineClock } from "../../../shared/deadline-clock";
+import viewScreen from "../../../actions/view-screen";
+import { countdown, dateCountdown, deadlineClock, isAhead } from "../../../shared/deadline-clock";
 import { getDb, schema } from "../../db/index";
 import migrate from "../../plugins/db";
 import { AGENT_SYSTEM_PROMPT } from "../agent-prompt";
@@ -45,7 +46,20 @@ describe("deadline clock: time left is computed in code", () => {
       timeLeft: "1d 2h left",
       past: false,
       minutesLeft: 26 * 60 + 22,
+      dateOnly: false,
+      daysLeft: null,
     });
+    // dueLocal with a time changes nothing.
+    expect(
+      deadlineClock(DUE, {
+        t: deskTimeT("en-US"),
+        locale: "en-US",
+        viewerTimeZone: "Asia/Seoul",
+        pageTimeZone: "America/Los_Angeles",
+        dueLocal: "2026-11-09T23:59",
+        now: NOW,
+      }),
+    ).toEqual(c);
   });
 
   it("counts down and then reports how long ago a deadline closed", () => {
@@ -110,6 +124,96 @@ describe("deadline clock: time left is computed in code", () => {
     expect(AGENT_SYSTEM_PROMPT).toContain("<deadline-clock>");
     for (const field of ["timeLeft", "yourTime", "pageTime", "utc"])
       expect(AGENT_SYSTEM_PROMPT).toContain(field);
+  });
+});
+
+// v2.2 demo, 17:10 KST: "page says Tue, Oct 27, 2026, 12:00 AM PDT" for a
+// quote that gives no time ("October 27, 2026 : Hackathon begins").
+const V22 = Date.parse("2026-11-09T08:10:00Z");
+const NO_TIME = /\d{1,2}:\d{2}|\b(AM|PM)\b|UTC\b/;
+
+describe("date-only deadlines: the page gave no time, so none is shown", () => {
+  const pt = "America/Los_Angeles";
+  const clock = (dueLocal: string, dueAt: string, now = V22, locale = "en-US" as const) =>
+    deadlineClock(dueAt, {
+      t: deskTimeT(locale),
+      locale,
+      viewerTimeZone: "Asia/Seoul",
+      pageTimeZone: pt,
+      dueLocal,
+      now,
+    });
+
+  it("gives the page's date and whole days, no midnight", () => {
+    // dueAt is the start of the day in PT (stored for sorting only).
+    expect(clock("2026-10-27", "2026-10-27T07:00:00.000Z")).toEqual({
+      dueAt: "2026-10-27",
+      utc: "2026-10-27, no time given",
+      yourTime: "Tue, Oct 27, 2026 (no time given)",
+      pageTime: "Tue, Oct 27, 2026 (no time given)",
+      timeLeft: "closed 13d ago",
+      past: true,
+      minutesLeft: null,
+      dateOnly: true,
+      daysLeft: -13,
+    });
+    const target = clock("2026-11-13", "2026-11-13T08:00:00.000Z");
+    expect(target).toMatchObject({
+      dueAt: "2026-11-13",
+      pageTime: "Fri, Nov 13, 2026 (no time given)",
+      timeLeft: "4d left",
+      past: false,
+      daysLeft: 4,
+      minutesLeft: null,
+    });
+    for (const value of [target.utc, target.yourTime, target.pageTime, target.timeLeft])
+      expect(value).not.toMatch(NO_TIME);
+  });
+
+  it("counts days in the page's zone: the day turns at the page's midnight", () => {
+    const t = deskTimeT("en-US");
+    // 23:59 PST on Nov 8, then 00:00 PST on Nov 9.
+    expect(dateCountdown("2026-11-13", pt, t, Date.parse("2026-11-09T07:59:00Z")).text).toBe("5d left");
+    expect(dateCountdown("2026-11-13", pt, t, Date.parse("2026-11-09T08:00:00Z")).text).toBe("4d left");
+    const onTheDay = dateCountdown("2026-11-13", pt, t, Date.parse("2026-11-13T20:00:00Z"));
+    expect(onTheDay).toMatchObject({ text: "today", past: false, urgent: true, days: 0 });
+    expect(dateCountdown("2026-11-13", pt, t, Date.parse("2026-11-14T08:00:00Z")).text).toBe(
+      "closed 1d ago",
+    );
+    // Still "ahead" for its whole day; a timed deadline is ahead until its minute.
+    const fact = { dueAt: "2026-11-13T08:00:00.000Z", dueLocal: "2026-11-13", dueTimeZone: pt };
+    expect(isAhead(fact, Date.parse("2026-11-13T20:00:00Z"))).toBe(true);
+    expect(isAhead(fact, Date.parse("2026-11-14T08:00:00Z"))).toBe(false);
+    expect(isAhead({ ...fact, dueLocal: "2026-11-13T00:00" }, Date.parse("2026-11-13T20:00:00Z"))).toBe(
+      false,
+    );
+  });
+
+  it("the context block marks a date-only deadline and gives no time for it", () => {
+    const viewer = { locale: "en-US" as const, timeZone: "Asia/Seoul" };
+    const block = deadlineClockBlock({
+      viewer,
+      now: V22,
+      rulebook: { name: "Agent-Native Hackathon" },
+      deadlines: [
+        {
+          factId: "f2",
+          rulebookId: "rb",
+          rulebookName: "Agent-Native Hackathon",
+          label: "Target winner announcement",
+          kind: "deadline",
+          status: "proposed",
+          clock: clock("2026-11-13", "2026-11-13T08:00:00.000Z"),
+        },
+      ],
+    });
+    const line = block.split("\n").find((l) => l.startsWith("- Target"));
+    expect(line).toBe(
+      "- Target winner announcement: 4d left | date only, page says Fri, Nov 13, 2026 (no time given) (factId f2, proposed)",
+    );
+    expect(line).not.toMatch(NO_TIME);
+    expect(CLOCK_RULE).toContain('A deadline marked "date only" has no time on the page');
+    expect(AGENT_SYSTEM_PROMPT).toContain("send the date only");
   });
 });
 
@@ -250,5 +354,191 @@ describe("agent context and action outputs carry the code-computed clock", () =>
     expect(clock.deadlines.map((d) => [d.label, d.clock.timeLeft, d.clock.utc])).toEqual([
       ["Final submission deadline", "1일 2시간 남음", "2026-11-10 07:59 UTC"],
     ]);
+  });
+});
+
+// The Builder.io schedule gives two dates with no time. The v2.2 demo showed
+// them as "page says Tue, Oct 27, 2026, 12:00 AM PDT" and "3d 23h left".
+describe("date-only deadlines in action outputs and the agent's context", () => {
+  const RB = "rb-clock-dates";
+  const BEGINS = "October 27, 2026 : Hackathon begins. Build with Agent-Native.";
+  const WINNERS = "November 13, 2026 : Target winner announcement.";
+  const ctx = { caller: "agent", userEmail: OWNER } as never;
+  let startId = "";
+  let targetId = "";
+
+  beforeAll(async () => {
+    const db = getDb();
+    const at = "2026-11-08T00:00:00.000Z";
+    await db.insert(schema.rulebooks).values({
+      id: RB,
+      name: "Date-only schedule",
+      ownerEmail: OWNER,
+      createdAt: at,
+      updatedAt: at,
+    });
+    await db.insert(schema.sources).values({
+      id: "src-clock-dates",
+      rulebookId: RB,
+      url: "https://www.builder.io/hackathon",
+      lastStatus: "ok",
+      currentSnapshotId: "snap-clock-dates",
+      ownerEmail: OWNER,
+      createdAt: at,
+    });
+    await db.insert(schema.snapshots).values({
+      id: "snap-clock-dates",
+      sourceId: "src-clock-dates",
+      fetchedAt: at,
+      contentHash: "h2",
+      text: `Key dates\n\n${BEGINS}\n\n${WINNERS}`,
+      ownerEmail: OWNER,
+    });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("save-facts gives a date-only clock and says so in its message", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(V22);
+    const out = (await asOwner(() =>
+      saveFacts.run(
+        {
+          rulebookId: RB,
+          facts: [
+            { kind: "deadline", label: "Hackathon start", quote: BEGINS, dueLocal: "2026-10-27", timeZone: "PT" },
+            {
+              kind: "deadline",
+              label: "Target winner announcement",
+              quote: WINNERS,
+              dueLocal: "2026-11-13",
+              timeZone: "PT",
+            },
+          ],
+        },
+        ctx,
+      ),
+    )) as {
+      saved: { id: string; label: string; dueAt: string; clock: Record<string, unknown> }[];
+      rejected: unknown[];
+      message: string;
+    };
+    expect(out.rejected).toEqual([]);
+    const [start, target] = out.saved;
+    startId = start!.id;
+    targetId = target!.id;
+    // Stored for sorting and the timeline: the start of the day in PT.
+    expect(start!.dueAt).toBe("2026-10-27T07:00:00.000Z");
+    expect(target!.clock).toEqual({
+      dueAt: "2026-11-13",
+      utc: "2026-11-13, no time given",
+      yourTime: "Fri, Nov 13, 2026 (no time given)",
+      pageTime: "Fri, Nov 13, 2026 (no time given)",
+      timeLeft: "4d left",
+      past: false,
+      minutesLeft: null,
+      dateOnly: true,
+      daysLeft: 4,
+    });
+    expect(start!.clock).toMatchObject({ timeLeft: "closed 13d ago", dateOnly: true, daysLeft: -13 });
+    expect(out.message).toContain(
+      "Target winner announcement: 4d left (date only, 2026-11-13, no time given); Hackathon start: closed 13d ago (date only, 2026-10-27, no time given)",
+    );
+    for (const text of [out.message, JSON.stringify(out.saved.map((f) => f.clock))])
+      expect(text).not.toMatch(NO_TIME);
+  });
+
+  it("the context block, deadline-clock, get-rulebook and list-rulebooks mark it dateOnly", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(V22);
+    const text = await asOwner(() => deadlineClockContext(seoul(), OWNER, V22));
+    const line = text.split("\n").find((l) => l.startsWith("- Target winner announcement"));
+    expect(line).toBe(
+      `- Target winner announcement [Date-only schedule]: 4d left | date only, page says Fri, Nov 13, 2026 (no time given) (factId ${targetId}, proposed)`,
+    );
+    // Timed deadlines keep their times next to it.
+    expect(text).toContain("your time Tue, Nov 10, 2026, 4:59 PM Seoul time");
+    const ko = await asOwner(() => deadlineClockContext(seoul("ko-KR"), OWNER, V22));
+    expect(ko).toContain(
+      "- Target winner announcement [Date-only schedule]: 4일 남음 | date only, page says 2026년 11월 13일 (금), 시각 미기재",
+    );
+
+    const clock = (await asOwner(() =>
+      deadlineClockAction.run({ factId: startId, locale: "ja-JP" }, ctx),
+    )) as { deadlines: { clock: Record<string, unknown> }[] };
+    expect(clock.deadlines.map((d) => d.clock)).toEqual([
+      {
+        dueAt: "2026-10-27",
+        utc: "2026-10-27, no time given",
+        yourTime: "2026年10月27日(火)（時刻の記載なし）",
+        pageTime: "2026年10月27日(火)（時刻の記載なし）",
+        timeLeft: "13日前に締切",
+        past: true,
+        minutesLeft: null,
+        dateOnly: true,
+        daysLeft: -13,
+      },
+    ]);
+
+    const book = (await asOwner(() => getRulebook.run({ id: RB }, ctx))) as {
+      facts: { label: string; clock: { dateOnly: boolean; pageTime: string } | null }[];
+    };
+    expect(book.facts.map((f) => [f.label, f.clock!.dateOnly, f.clock!.pageTime])).toEqual(
+      expect.arrayContaining([
+        ["Hackathon start", true, "Tue, Oct 27, 2026 (no time given)"],
+        ["Target winner announcement", true, "Fri, Nov 13, 2026 (no time given)"],
+      ]),
+    );
+    const list = (await asOwner(() => listRulebooks.run({}, ctx))) as {
+      rulebooks: {
+        id: string;
+        nextDeadline: { label: string; dueLocal: string | null; clock: { timeLeft: string; dateOnly: boolean } } | null;
+      }[];
+    };
+    expect(list.rulebooks.find((r) => r.id === RB)!.nextDeadline).toMatchObject({
+      label: "Target winner announcement",
+      dueLocal: "2026-11-13",
+      clock: { timeLeft: "4d left", dateOnly: true },
+    });
+    // A timed deadline's clock is unchanged.
+    expect(list.rulebooks.find((r) => r.id === RULEBOOK)!.nextDeadline!.clock).toMatchObject({
+      dateOnly: false,
+    });
+  });
+
+  it("a date-only deadline is still next on its own day in the page's zone", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    // 20:00 UTC on Nov 13 is midday in PT: the stored start of day has passed, the date has not.
+    const onTheDay = Date.parse("2026-11-13T20:00:00Z");
+    vi.setSystemTime(onTheDay);
+    const list = (await asOwner(() => listRulebooks.run({}, ctx))) as {
+      rulebooks: { id: string; nextDeadline: { label: string; clock: { timeLeft: string } } | null }[];
+    };
+    expect(list.rulebooks.find((r) => r.id === RB)!.nextDeadline).toMatchObject({
+      label: "Target winner announcement",
+      clock: { timeLeft: "today" },
+    });
+    const text = await asOwner(() => deadlineClockContext(seoul(), OWNER, onTheDay));
+    expect(text).toContain("- Target winner announcement [Date-only schedule]: today | date only");
+  });
+
+  it("view-screen gives the agent the date, not a start-of-day instant", async () => {
+    await asOwner(() =>
+      writeAppState("navigation", { view: "rulebook", rulebookId: RB, factId: targetId }),
+    );
+    try {
+      const screen = (await asOwner(() => viewScreen.run({}, ctx))) as {
+        rulebook: { facts: Record<string, unknown>[] };
+        selectedFact: Record<string, unknown>;
+      };
+      const row = screen.rulebook.facts.find((f) => f.id === targetId)!;
+      expect(row).toMatchObject({ dueDate: "2026-11-13", dateOnly: true });
+      expect(row).not.toHaveProperty("dueAt");
+      expect(screen.selectedFact).toMatchObject({ dueLocal: "2026-11-13", dateOnly: true });
+      expect(screen.selectedFact).not.toHaveProperty("dueAt");
+    } finally {
+      await asOwner(() => deleteAppState("navigation"));
+    }
   });
 });
