@@ -38,13 +38,13 @@ const desk = {
   },
   editor: {
     person: "You",
-    automation: "Daily check",
+    automation: "Automation",
     agent: "Agent",
   },
   // The same names inside a sentence ("edited by {{editor}}").
   editorInline: {
     person: "you",
-    automation: "daily check",
+    automation: "automation",
     agent: "agent",
   },
   time: {

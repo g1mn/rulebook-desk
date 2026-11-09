@@ -35,12 +35,12 @@ const desk: DeskMessages = {
   },
   editor: {
     person: "나",
-    automation: "매일 점검",
+    automation: "자동화",
     agent: "에이전트",
   },
   editorInline: {
     person: "나",
-    automation: "매일 점검",
+    automation: "자동화",
     agent: "에이전트",
   },
   time: {

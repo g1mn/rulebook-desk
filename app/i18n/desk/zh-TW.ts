@@ -35,12 +35,12 @@ const desk: DeskMessages = {
   },
   editor: {
     person: "你",
-    automation: "每日檢查",
+    automation: "自動化",
     agent: "AI 代理",
   },
   editorInline: {
     person: "你",
-    automation: "每日檢查",
+    automation: "自動化",
     agent: "AI 代理",
   },
   time: {

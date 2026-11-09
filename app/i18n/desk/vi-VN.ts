@@ -35,12 +35,12 @@ const desk: DeskMessages = {
   },
   editor: {
     person: "Bạn",
-    automation: "Kiểm tra hằng ngày",
+    automation: "Tự động hóa",
     agent: "Trợ lý AI",
   },
   editorInline: {
     person: "bạn",
-    automation: "kiểm tra hằng ngày",
+    automation: "tự động hóa",
     agent: "trợ lý AI",
   },
   time: {

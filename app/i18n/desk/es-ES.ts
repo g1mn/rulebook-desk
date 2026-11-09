@@ -35,12 +35,12 @@ const desk: DeskMessages = {
   },
   editor: {
     person: "Tú",
-    automation: "Revisión diaria",
+    automation: "Automatización",
     agent: "Agente",
   },
   editorInline: {
     person: "ti",
-    automation: "la revisión diaria",
+    automation: "una automatización",
     agent: "el agente",
   },
   time: {
