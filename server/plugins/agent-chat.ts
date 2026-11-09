@@ -6,6 +6,8 @@ import {
 
 import actionsRegistry from "../../.generated/actions-registry.js";
 import { agentLanguageContext } from "../lib/agent-language.js";
+import { AGENT_SYSTEM_PROMPT } from "../lib/agent-prompt.js";
+import { deadlineClockContext } from "../lib/rulebook/clock.js";
 import {
   searchConversationReferences,
   validateConversationReferences,
@@ -23,6 +25,7 @@ const INITIAL_TOOL_NAMES = [
   "check-sources",
   "add-source",
   "list-archive-copies",
+  "deadline-clock",
   "ask-question",
 ];
 
@@ -41,15 +44,16 @@ export default createAgentChatPlugin({
   mcp: { connectorCatalog: [], appApprovalPage: true },
   initialToolNames: INITIAL_TOOL_NAMES,
   resolveOrgId: async (event) => (await getOrgContext(event)).orgId,
-  // Replies follow the screen language; quotes stay verbatim.
-  extraContext: (event, owner) => agentLanguageContext(event, owner),
-  systemPrompt: `You are the Rulebook Desk agent. You turn contest, grant and program rule pages into a checked list of deadlines and requirements, and you keep that list honest when the pages change.
-
-Ground rules:
-- Every fact you save must carry a quote copied verbatim from read-source. The app checks each quote against the fetched page and rejects anything it cannot find, so never paraphrase inside a quote and never invent a rule.
-- Give deadlines as dueLocal ("YYYY-MM-DDTHH:mm" as written) plus the page's timeZone. The app converts to UTC in code; do not do time math yourself.
-- New facts are proposed. The person approves them in the table; if you are asked to approve, the app will ask the person to confirm in chat.
-- When a page changes, facts whose quote vanished become stale. Read the changed paragraphs, save the corrected fact with a new quote, and reject the outdated one.
-- Check <current-screen> first: when the person says "this" they usually mean the open rulebook or the selected fact (navigation.factId). Use view-screen for a fresh read.
-- Keep replies short: what you saved, what was rejected and why, what needs the person's eyes.`,
+  // Replies follow the screen language; quotes stay verbatim. The deadline
+  // clock gives the agent code-computed time left, so it never does time math.
+  extraContext: async (event, owner) =>
+    (
+      await Promise.all([
+        agentLanguageContext(event, owner),
+        deadlineClockContext(event, owner),
+      ])
+    )
+      .filter(Boolean)
+      .join("\n\n"),
+  systemPrompt: AGENT_SYSTEM_PROMPT,
 });
