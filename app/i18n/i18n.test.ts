@@ -2,17 +2,19 @@ import { readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import { localeDisplayName } from "@agent-native/core/localization/shared";
 import { describe, expect, it } from "vitest";
 
 import {
   pickReplyLocale,
   replyLanguageInstruction,
 } from "../../server/lib/agent-language";
-import { APP_LOCALES } from "../../shared/locales";
+import { AGENT_LANGUAGE_NAMES, APP_LOCALE_METADATA, APP_LOCALES } from "../../shared/locales";
 import {
   KIND_ORDER,
   checkSummary,
   countdown,
+  editorInline,
   formatInZone,
   formatWayback,
   localizeStaleReason,
@@ -22,18 +24,31 @@ import {
   type Translate,
 } from "../lib/rulebook";
 
+import deDE from "./de-DE";
 import enUS from "./en-US";
+import esES from "./es-ES";
+import frFR from "./fr-FR";
 import { i18nCatalog } from "./index";
 import jaJP from "./ja-JP";
 import koKR from "./ko-KR";
+import ptBR from "./pt-BR";
+import viVN from "./vi-VN";
 import zhCN from "./zh-CN";
+import zhTW from "./zh-TW";
 
 const CATALOGS: Record<string, Record<string, unknown>> = {
   "en-US": enUS,
   "ko-KR": koKR,
   "ja-JP": jaJP,
   "zh-CN": zhCN,
+  "zh-TW": zhTW,
+  "es-ES": esES,
+  "fr-FR": frFR,
+  "de-DE": deDE,
+  "pt-BR": ptBR,
+  "vi-VN": viVN,
 };
+const OTHER_LOCALES = APP_LOCALES.filter((locale) => locale !== "en-US");
 
 function flatten(value: unknown, prefix = "", out: Record<string, string> = {}) {
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
@@ -50,6 +65,26 @@ const PLACEHOLDER_CHOICES: Record<string, string[]> = {
 };
 
 const placeholders = (text: string) => [...text.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]).sort();
+
+const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
+/** Plural keys in English ("desk.index.created" for created_one/created_other). */
+const pluralBases = (keys: string[]) =>
+  [...new Set(keys.filter((k) => k.endsWith("_other")).map((k) => k.replace(PLURAL_SUFFIX, "")))];
+/** English keys plus the plural forms this language's rules use (French adds _many). */
+function expectedKeys(locale: string, en: Record<string, string>) {
+  const keys = new Set(Object.keys(en));
+  const categories = new Intl.PluralRules(locale).resolvedOptions().pluralCategories;
+  for (const base of pluralBases(Object.keys(en)))
+    for (const category of categories) keys.add(`${base}_${category}`);
+  return [...keys].sort();
+}
+
+/** Desk keys a language may leave as in English: an example name, a time-zone hint, a "{{name}}: …" pattern. */
+const MAY_MATCH_ENGLISH = [
+  "desk.edit.zonePlaceholder",
+  "desk.index.namePlaceholder",
+  "desk.timeline.chipTitle",
+];
 
 // The app runs on the framework's i18next; use the same library (a dependency
 // of @agent-native/core) so plural and interpolation rules match the screen.
@@ -75,26 +110,58 @@ const tr = (locale: string): Translate => instance.getFixedT(locale) as unknown 
 describe("translation catalogs", () => {
   const en = flatten(enUS);
 
-  it("ship exactly the four app languages", () => {
-    expect([...APP_LOCALES]).toEqual(["en-US", "ko-KR", "ja-JP", "zh-CN"]);
+  it("ship exactly the ten app languages, English first", () => {
+    expect([...APP_LOCALES]).toEqual([
+      "en-US",
+      "ko-KR",
+      "ja-JP",
+      "zh-CN",
+      "zh-TW",
+      "es-ES",
+      "fr-FR",
+      "de-DE",
+      "pt-BR",
+      "vi-VN",
+    ]);
+    expect(Object.keys(CATALOGS)).toEqual([...APP_LOCALES]);
     expect(i18nCatalog.supportedLocales).toEqual(APP_LOCALES);
     expect(i18nCatalog.sourceLocale).toBe("en-US");
   });
 
-  for (const locale of ["ko-KR", "ja-JP", "zh-CN"]) {
+  it("the language menu names each language in that language", () => {
+    const metadata = Object.fromEntries(APP_LOCALE_METADATA.map((m) => [m.code, m]));
+    expect(i18nCatalog.locales?.map((m) => m.code)).toEqual([...APP_LOCALES]);
+    expect(APP_LOCALES.map((code) => localeDisplayName(code, metadata))).toEqual([
+      "English",
+      "한국어",
+      "日本語",
+      "简体中文",
+      "繁體中文",
+      "Español",
+      "Français",
+      "Deutsch",
+      "Português",
+      "Tiếng Việt",
+    ]);
+    expect(Object.keys(AGENT_LANGUAGE_NAMES)).toEqual([...APP_LOCALES]);
+  });
+
+  for (const locale of OTHER_LOCALES) {
     const other = flatten(CATALOGS[locale]);
 
-    it(`${locale} has the same keys as English`, () => {
-      expect(Object.keys(other).sort()).toEqual(Object.keys(en).sort());
+    it(`${locale} has the same keys as English, plus the plural forms its grammar uses`, () => {
+      expect(Object.keys(other).sort()).toEqual(expectedKeys(locale, en));
     });
 
     it(`${locale} keeps every {{placeholder}}`, () => {
-      const wrong = Object.keys(en).filter((key) => {
+      const wrong = Object.keys(other).filter((key) => {
         const mine = placeholders(other[key] ?? "");
-        const allowed = PLACEHOLDER_CHOICES[key];
+        // An extra plural form ("_many") carries the same values as "_other".
+        const source = key in en ? key : key.replace(PLURAL_SUFFIX, "_other");
+        const allowed = PLACEHOLDER_CHOICES[source];
         // A few keys get several forms of one value (zero-padded "05m" in English).
         if (allowed) return mine.some((p) => !allowed.includes(p!));
-        return placeholders(en[key]!).join() !== mine.join();
+        return placeholders(en[source]!).join() !== mine.join();
       });
       expect(wrong).toEqual([]);
     });
@@ -103,12 +170,18 @@ describe("translation catalogs", () => {
       const same = Object.keys(en).filter(
         (key) => key.startsWith("desk.") && other[key] === en[key],
       );
-      // Proper names and examples may stay as they are.
-      expect(same.sort()).toEqual(
-        ["desk.edit.zonePlaceholder", "desk.index.namePlaceholder", "desk.timeline.chipTitle"].filter(
-          (key) => other[key] === en[key],
-        ),
-      );
+      expect(same.filter((key) => !MAY_MATCH_ENGLISH.includes(key))).toEqual([]);
+    });
+
+    it(`${locale} gives every count its own text instead of falling back to English`, () => {
+      const values = { name: "X", ok: 1, host: "example.org", changed: 1 };
+      const missing: string[] = [];
+      for (const base of pluralBases(Object.keys(en)))
+        for (const count of [0, 1, 2, 5, 21, 1_000_000]) {
+          const text = tr(locale)(base, { ...values, count });
+          if (text === tr("en-US")(base, { ...values, count })) missing.push(`${base} ${count}`);
+        }
+      expect(missing).toEqual([]);
     });
 
     it(`${locale} loads through the catalog`, async () => {
@@ -153,12 +226,25 @@ describe("dates, times and counts per language", () => {
   const due = "2026-11-10T07:59:00.000Z";
 
   it("countdown", () => {
-    expect(countdown(due, tr("en-US"), now).text).toBe("2d 7h left");
-    expect(countdown(due, tr("ko-KR"), now).text).toBe("2일 7시간 남음");
-    expect(countdown(due, tr("ja-JP"), now).text).toBe("残り2日7時間");
-    expect(countdown(due, tr("zh-CN"), now).text).toBe("剩余2天7小时");
-    expect(countdown("2026-11-07T21:55:00Z", tr("en-US"), now).text).toBe("closed 2h 05m ago");
-    expect(countdown("2026-11-07T21:55:00Z", tr("ko-KR"), now).text).toBe("2시간 5분 전 마감");
+    const left: Record<string, string> = {
+      "en-US": "2d 7h left",
+      "ko-KR": "2일 7시간 남음",
+      "ja-JP": "残り2日7時間",
+      "zh-CN": "剩余2天7小时",
+      "zh-TW": "剩餘2天7小時",
+      "es-ES": "quedan 2 d 7 h",
+      "fr-FR": "encore 2 j 7 h",
+      "de-DE": "noch 2 Tg. 7 Std.",
+      "pt-BR": "faltam 2 d 7 h",
+      "vi-VN": "còn 2 ngày 7 giờ",
+    };
+    expect(Object.fromEntries(APP_LOCALES.map((l) => [l, countdown(due, tr(l), now).text]))).toEqual(left);
+    const closed = "2026-11-07T21:55:00Z";
+    expect(countdown(closed, tr("en-US"), now).text).toBe("closed 2h 05m ago");
+    expect(countdown(closed, tr("ko-KR"), now).text).toBe("2시간 5분 전 마감");
+    expect(countdown(closed, tr("fr-FR"), now).text).toBe("clos il y a 2 h 05");
+    expect(countdown(closed, tr("de-DE"), now).text).toBe("vor 2 Std. 05 Min. abgelaufen");
+    expect(countdown(closed, tr("vi-VN"), now).text).toBe("đã đóng 2 giờ 5 phút trước");
   });
 
   it("relative time", () => {
@@ -167,6 +253,12 @@ describe("dates, times and counts per language", () => {
     expect(relativeTime(fiveMin, tr("ko-KR"), now)).toBe("5분 전");
     expect(relativeTime(fiveMin, tr("ja-JP"), now)).toBe("5分前");
     expect(relativeTime(fiveMin, tr("zh-CN"), now)).toBe("5分钟前");
+    expect(relativeTime(fiveMin, tr("zh-TW"), now)).toBe("5分鐘前");
+    expect(relativeTime(fiveMin, tr("es-ES"), now)).toBe("hace 5 min");
+    expect(relativeTime(fiveMin, tr("fr-FR"), now)).toBe("il y a 5 min");
+    expect(relativeTime(fiveMin, tr("de-DE"), now)).toBe("vor 5 Min.");
+    expect(relativeTime(fiveMin, tr("pt-BR"), now)).toBe("há 5 min");
+    expect(relativeTime(fiveMin, tr("vi-VN"), now)).toBe("5 phút trước");
     expect(relativeTime(null, tr("en-US"), now)).toBe("never");
   });
 
@@ -181,6 +273,20 @@ describe("dates, times and counts per language", () => {
     expect(formatInZone(due, "Etc/GMT+12", "ja-JP")).toContain("AoE (UTC−12)");
     expect(shortDate(due, "UTC", "ko-KR")).toBe("11월 10일");
     expect(formatWayback("20251212", "ja-JP")).toBe("2025年12月12日");
+    // The ten languages: each names the place in its own words.
+    expect(formatInZone(due, "America/Los_Angeles", "es-ES")).toContain("hora de Los Ángeles");
+    expect(formatInZone(due, "America/Los_Angeles", "de-DE")).toContain("9. Nov. 2026");
+    expect(formatInZone(due, "America/Los_Angeles", "pt-BR")).toContain("9 de nov. de 2026");
+    expect(formatInZone(due, "Asia/Seoul", "fr-FR")).toContain("Corée du Sud");
+    // Intl gives Traditional Chinese and Vietnamese only "PT" in the short form; they get the long name.
+    expect(formatInZone(due, "America/Los_Angeles", "zh-TW")).toContain("太平洋時間");
+    expect(formatInZone(due, "America/Los_Angeles", "vi-VN")).toContain("Giờ Thái Bình Dương");
+    // French writes the offset "UTC−12"; it still reads AoE.
+    for (const locale of OTHER_LOCALES)
+      expect(formatInZone(due, "Etc/GMT+12", locale), locale).toContain("AoE (UTC−12)");
+    expect(shortDate(due, "UTC", "de-DE")).toBe("10. Nov.");
+    expect(formatWayback("20251212", "fr-FR")).toBe("12 déc. 2025");
+    expect(formatWayback("20251212", "vi-VN")).toBe("12 thg 12, 2025");
   });
 
   it("plurals follow each language", () => {
@@ -193,6 +299,29 @@ describe("dates, times and counts per language", () => {
     expect(tr("ko-KR")("desk.index.created", { name: "X", ok: 1, count: 1 })).toBe(
       '"X" 규정집을 만들고 페이지 1개 중 1개를 가져왔습니다.',
     );
+    const saved = (locale: string, count: number) => tr(locale)("desk.rulebook.savedFacts", { count });
+    expect(saved("de-DE", 1)).toBe("1 Eintrag gespeichert.");
+    expect(saved("de-DE", 2)).toBe("2 Einträge gespeichert.");
+    // French counts 0 as singular; es, fr and pt have a "many" form for millions.
+    expect(saved("fr-FR", 0)).toBe("0 élément enregistré.");
+    expect(saved("fr-FR", 1_000_000)).toBe("1000000 d’éléments enregistrés.");
+    expect(saved("es-ES", 2)).toBe("Se guardaron 2 datos.");
+    expect(saved("pt-BR", 1)).toBe("1 item salvo.");
+    // Vietnamese and Chinese have one form for every count.
+    expect(saved("vi-VN", 1)).toBe("Đã lưu 1 mục.");
+    expect(saved("zh-TW", 1)).toBe("已儲存 1 個條目。");
+  });
+
+  it("the editor's name inside a sentence follows each language", () => {
+    const editedBy = (locale: string) =>
+      tr(locale)("desk.fact.editedBy", {
+        creator: tr(locale)("desk.editor.person"),
+        editor: editorInline("agent", tr(locale)),
+      });
+    expect(editedBy("en-US")).toBe("You · edited by agent");
+    expect(editedBy("de-DE")).toBe("Du · bearbeitet von dem KI-Agenten");
+    expect(editedBy("fr-FR")).toBe("Vous · modifié par l’agent IA");
+    expect(editedBy("vi-VN")).toBe("Bạn · trợ lý AI đã sửa");
   });
 
   it("toasts are built from the action result", () => {
@@ -214,6 +343,10 @@ describe("dates, times and counts per language", () => {
       ok: true,
       text: "항목 1개를 저장했습니다.",
     });
+    expect(checkSummary(result, "20251212", tr("de-DE"), "de-DE")).toBe(
+      "Kopie aus dem Internet Archive vom 12. Dez. 2025 geladen. 2 Seiten geprüft, geändert: 1. 1 Eintrag ist jetzt veraltet. 1 Seite übersprungen, die an eine Kopie aus dem Internet Archive gebunden ist.",
+    );
+    expect(checkSummary({ results: [] }, undefined, tr("pt-BR"))).toBe("Nenhum regulamento para verificar.");
   });
 
   it("stale reasons stored in English read in the screen language", () => {
@@ -228,6 +361,12 @@ describe("dates, times and counts per language", () => {
     expect(localizeStaleReason(live, tr("zh-CN"), "zh-CN")).toBe(
       "builder.io 上已找不到这段引文（2026-11-09 10:00 UTC 检查）。",
     );
+    expect(localizeStaleReason(archive, tr("fr-FR"), "fr-FR")).toBe(
+      "La citation a disparu de la copie d’Internet Archive de kiroween.devpost.com du 12 déc. 2025.",
+    );
+    expect(localizeStaleReason(live, tr("es-ES"), "es-ES")).toBe(
+      "La cita ya no aparece en builder.io (revisado el 2026-11-09 10:00 UTC).",
+    );
     expect(localizeStaleReason("Something else.", tr("ko-KR"))).toBe("Something else.");
   });
 });
@@ -237,16 +376,32 @@ describe("agent reply language", () => {
     expect(pickReplyLocale({ setting: "ko-KR", screen: "en-US" })).toBe("ko-KR");
     expect(pickReplyLocale({ setting: "system", screen: "ja-JP" })).toBe("ja-JP");
     expect(pickReplyLocale({ setting: "system", acceptLanguage: "zh-Hans-CN,zh;q=0.9" })).toBe("zh-CN");
-    expect(pickReplyLocale({ acceptLanguage: "fr-FR,ko;q=0.8" })).toBe("ko-KR");
-    expect(pickReplyLocale({ acceptLanguage: "fr-FR" })).toBe("en-US");
+    expect(pickReplyLocale({ setting: "de-DE", screen: "fr-FR" })).toBe("de-DE");
+    expect(pickReplyLocale({ setting: "vi-VN" })).toBe("vi-VN");
+    // Regional and script variants land on the shipped language.
+    expect(pickReplyLocale({ acceptLanguage: "zh-Hant-TW,zh;q=0.9" })).toBe("zh-TW");
+    expect(pickReplyLocale({ acceptLanguage: "zh-HK" })).toBe("zh-TW");
+    expect(pickReplyLocale({ acceptLanguage: "es-MX" })).toBe("es-ES");
+    expect(pickReplyLocale({ acceptLanguage: "pt-PT" })).toBe("pt-BR");
+    expect(pickReplyLocale({ acceptLanguage: "fr-CA" })).toBe("fr-FR");
+    expect(pickReplyLocale({ acceptLanguage: "de-AT" })).toBe("de-DE");
+    expect(pickReplyLocale({ acceptLanguage: "vi" })).toBe("vi-VN");
+    // A language the app does not ship is skipped; nothing usable means English.
+    expect(pickReplyLocale({ acceptLanguage: "it-IT,ko;q=0.8" })).toBe("ko-KR");
+    expect(pickReplyLocale({ acceptLanguage: "it-IT" })).toBe("en-US");
     expect(pickReplyLocale({})).toBe("en-US");
   });
 
   it("tells the agent to answer in the screen language and keep quotes verbatim", () => {
     expect(replyLanguageInstruction("en-US")).toBe("");
-    const ko = replyLanguageInstruction("ko-KR");
-    expect(ko).toContain("Korean (한국어)");
-    expect(ko).toContain("Never translate a quote");
+    for (const locale of OTHER_LOCALES) {
+      const text = replyLanguageInstruction(locale);
+      expect(text, locale).toContain(`The person reads this app in ${AGENT_LANGUAGE_NAMES[locale]}.`);
+      expect(text, locale).toContain("Never translate a quote");
+    }
+    expect(replyLanguageInstruction("ko-KR")).toContain("Korean (한국어)");
     expect(replyLanguageInstruction("zh-CN")).toContain("Simplified Chinese");
+    expect(replyLanguageInstruction("zh-TW")).toContain("Traditional Chinese (繁體中文)");
+    expect(replyLanguageInstruction("vi-VN")).toContain("Vietnamese (Tiếng Việt)");
   });
 });
