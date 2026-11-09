@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
+import { isDateOnly } from "../shared/deadline-clock.js";
 import { requireRulebook } from "../server/lib/rulebook/service.js";
 
 export default defineAction({
@@ -37,6 +38,7 @@ export default defineAction({
             status: schema.facts.status,
             quoteStatus: schema.facts.quoteStatus,
             dueAt: schema.facts.dueAt,
+            dueLocal: schema.facts.dueLocal,
             quote: schema.facts.quote,
             staleReason: schema.facts.staleReason,
             done: schema.facts.done,
@@ -67,12 +69,20 @@ export default defineAction({
             kind: f.kind,
             label: f.label,
             status: f.status,
-            dueAt: f.dueAt,
+            // A date with no time on the page: give the date, not the start-of-day instant.
+            ...(isDateOnly(f.dueLocal)
+              ? { dueDate: f.dueLocal.trim(), dateOnly: true }
+              : { dueAt: f.dueAt }),
             done: f.done,
           })),
         };
         const selected = facts.find((f) => f.id === selectedId);
-        if (selected) screen.selectedFact = selected;
+        if (selected) {
+          const { dueAt, ...rest } = selected;
+          screen.selectedFact = isDateOnly(selected.dueLocal)
+            ? { ...rest, dateOnly: true }
+            : { ...rest, dueAt };
+        }
       }
     }
 

@@ -65,7 +65,7 @@ const factIn = z.object({
 
 export default defineAction({
   description:
-    "Save deadlines and requirements for a rulebook in one batch. Each fact needs a verbatim quote from read-source; quotes not found on any fetched page are rejected (not saved) and listed in `rejected`, and a deadline is rejected unless its quote states that date (and hour, if the quote has a time); when the quote gives no year, the year must be the one the page meant when it was captured. Deadline times are converted to UTC in code from dueLocal + timeZone, so never convert times yourself; each saved deadline comes back with a clock (timeLeft, yourTime, pageTime, utc) to quote as is. New facts start as proposed for human review.",
+    "Save deadlines and requirements for a rulebook in one batch. Each fact needs a verbatim quote from read-source; quotes not found on any fetched page are rejected (not saved) and listed in `rejected`, and a deadline is rejected unless its quote states that date (and hour, if the quote has a time); when the quote gives no year, the year must be the one the page meant when it was captured. Deadline times are converted to UTC in code from dueLocal + timeZone, so never convert times yourself; each saved deadline comes back with a clock (timeLeft, yourTime, pageTime, utc) to quote as is; a date-only deadline (dueLocal with no time) has clock.dateOnly true and must be stated as a date with no time of day. New facts start as proposed for human review.",
   schema: z.object({
     rulebookId: z.string().describe("Rulebook id"),
     facts: z.array(factIn).min(1).max(40).describe("Facts to save"),
@@ -213,15 +213,20 @@ export default defineAction({
     const dated = out
       .filter((f) => f.clock)
       // Still ahead first (soonest first), then the ones already closed.
+      // Sorted on the stored instant; a date-only deadline shows no time.
       .sort((a, b) =>
         a.clock!.past !== b.clock!.past
           ? Number(a.clock!.past) - Number(b.clock!.past)
-          : a.clock!.dueAt < b.clock!.dueAt
+          : a.dueAt! < b.dueAt!
             ? -1
             : 1,
       )
       .slice(0, 8)
-      .map((f) => `${f.label}: ${f.clock!.timeLeft} (${f.clock!.utc})`);
+      .map((f) =>
+        f.clock!.dateOnly
+          ? `${f.label}: ${f.clock!.timeLeft} (date only, ${f.clock!.utc})`
+          : `${f.label}: ${f.clock!.timeLeft} (${f.clock!.utc})`,
+      );
     return {
       saved: out,
       rejected,

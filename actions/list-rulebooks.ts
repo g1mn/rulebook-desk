@@ -4,6 +4,7 @@ import { accessFilter } from "@agent-native/core/sharing";
 import { desc, inArray } from "drizzle-orm";
 import { z } from "zod";
 
+import { isAhead } from "../shared/deadline-clock.js";
 import { getDb, schema } from "../server/db/index.js";
 import { clockFor, resolveClockViewer } from "../server/lib/rulebook/clock.js";
 import { clockOut } from "../server/lib/rulebook/schemas.js";
@@ -33,6 +34,7 @@ export default defineAction({
             factId: z.string(),
             label: z.string(),
             dueAt: z.string(),
+            dueLocal: z.string().nullable(),
             dueTimeZone: z.string().nullable(),
             status: z.string(),
             clock: clockOut,
@@ -42,7 +44,13 @@ export default defineAction({
         requirementsTotal: z.number(),
         lastChangeAt: z.string().nullable(),
         deadlines: z.array(
-          z.object({ label: z.string(), dueAt: z.string(), status: z.string() }),
+          z.object({
+            label: z.string(),
+            dueAt: z.string(),
+            dueLocal: z.string().nullable(),
+            dueTimeZone: z.string().nullable(),
+            status: z.string(),
+          }),
         ),
       }),
     ),
@@ -87,6 +95,7 @@ export default defineAction({
         status: facts.status,
         quoteStatus: facts.quoteStatus,
         dueAt: facts.dueAt,
+        dueLocal: facts.dueLocal,
         dueTimeZone: facts.dueTimeZone,
         done: facts.done,
       })
@@ -100,7 +109,6 @@ export default defineAction({
       .orderBy(desc(changes.detectedAt))
       .limit(1000);
     const nowMs = Date.now();
-    const now = new Date(nowMs).toISOString();
     return {
       rulebooks: books.map((b) => {
         const s = srcRows.filter((r) => r.rulebookId === b.id);
@@ -112,9 +120,10 @@ export default defineAction({
             counts.unverified += 1;
         }
         const upcoming = f
+          // A date-only deadline stays "next" through its whole day in the page's zone.
           .filter(
             (r) =>
-              r.dueAt && r.dueAt >= now && r.status !== "rejected",
+              r.dueAt && isAhead({ ...r, dueAt: r.dueAt }, nowMs) && r.status !== "rejected",
           )
           .sort((x, y) => (x.dueAt! < y.dueAt! ? -1 : 1))[0];
         const reqs = f.filter(
@@ -140,6 +149,7 @@ export default defineAction({
                 factId: upcoming.id,
                 label: upcoming.label,
                 dueAt: upcoming.dueAt!,
+                dueLocal: upcoming.dueLocal,
                 dueTimeZone: upcoming.dueTimeZone,
                 status: upcoming.status,
                 clock: clockFor(upcoming, viewer, nowMs)!,
@@ -157,7 +167,13 @@ export default defineAction({
             )
             .sort((x, y) => (x.dueAt! < y.dueAt! ? -1 : 1))
             .slice(0, 12)
-            .map((r) => ({ label: r.label, dueAt: r.dueAt!, status: r.status })),
+            .map((r) => ({
+              label: r.label,
+              dueAt: r.dueAt!,
+              dueLocal: r.dueLocal,
+              dueTimeZone: r.dueTimeZone,
+              status: r.status,
+            })),
         };
       }),
     };
